@@ -29,6 +29,10 @@ class AppServiceProvider extends ServiceProvider
             $host = request()->getHost();
             if (str_ends_with($host, '.loca.lt') || request()->header('X-Forwarded-Proto') === 'https') {
                 URL::forceScheme('https');
+                // Beri tahu Request bahwa koneksi aslinya HTTPS, supaya
+                // $request->fullUrl() / session previous-url / redirect()->back()
+                // juga memakai https meski tanpa header Referer.
+                request()->server->set('HTTPS', 'on');
             }
         } catch (\Throwable $e) {
             // Abaikan saat tidak ada request aktif (mis. artisan CLI).

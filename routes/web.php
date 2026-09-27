@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\SiteController;
 use App\Http\Controllers\EngineerController;
 use App\Http\Controllers\ToolController;
 use App\Http\Controllers\KunjunganController;
@@ -39,7 +40,10 @@ Route::middleware(['auth', 'role:Kepala Pimpinan,Pimpinan'])->prefix('master')->
     // Customer
     Route::resource('customer', CustomerController::class)->except(['create', 'show', 'edit']);
 
-    // Master Data Cabang (Site)
+    // Master Data Site Perusahaan (terkoneksi dengan Customer)
+    Route::resource('site', SiteController::class)->except(['create', 'show', 'edit']);
+
+    // Master Data Cabang (Site) via Customer
     Route::post('customer/{id_customer}/site', [\App\Http\Controllers\CustomerSiteController::class, 'store'])->name('customer.site.store');
     Route::put('customer/site/{id_site}', [\App\Http\Controllers\CustomerSiteController::class, 'update'])->name('customer.site.update');
     Route::delete('customer/site/{id_site}', [\App\Http\Controllers\CustomerSiteController::class, 'destroy'])->name('customer.site.destroy');
