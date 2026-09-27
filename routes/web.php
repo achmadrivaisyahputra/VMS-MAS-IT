@@ -79,6 +79,7 @@ Route::middleware(['auth'])->prefix('kunjungan')->name('kunjungan.')->group(func
         Route::post('/{id}/pengeluaran', [KunjunganController::class, 'storePengeluaran'])->name('pengeluaran');
         Route::post('/{id}/reschedule', [KunjunganController::class, 'reschedule'])->name('reschedule');
         Route::post('/{id}/checkout', [KunjunganController::class, 'checkOut'])->name('checkout');
+        Route::post('/{id}/revisi-catatan', [KunjunganController::class, 'revisiCatatan'])->name('revisi-catatan');
     });
 
     // Verifikasi Tanda Tangan Customer

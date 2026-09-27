@@ -52,10 +52,10 @@
             <div class="p-2.5 rounded-xl font-bold {{ $kunjungan->status == 'Dikonfirmasi' ? 'bg-blue-50 border border-blue-200 text-[#003399]' : 'bg-slate-50 text-slate-400 border border-slate-200' }}">
                 2. Check-in (GPS)
             </div>
-            <div class="p-2.5 rounded-xl font-bold {{ $kunjungan->status == 'Dikerjakan' ? 'bg-blue-50 border border-blue-200 text-[#003399]' : 'bg-slate-50 text-slate-400 border border-slate-200' }}">
+            <div class="p-2.5 rounded-xl font-bold {{ ($kunjungan->status == 'Dikerjakan' && !$kunjungan->laporan) ? 'bg-blue-50 border border-blue-200 text-[#003399]' : 'bg-slate-50 text-slate-400 border border-slate-200' }}">
                 3. On-Site & Foto
             </div>
-            <div class="p-2.5 rounded-xl font-bold {{ $kunjungan->status == 'Selesai' ? 'bg-emerald-50 border border-emerald-200 text-emerald-600' : 'bg-slate-50 text-slate-400 border border-slate-200' }}">
+            <div class="p-2.5 rounded-xl font-bold {{ ($kunjungan->status == 'Selesai' || ($kunjungan->status == 'Dikerjakan' && $kunjungan->laporan)) ? 'bg-emerald-50 border border-emerald-200 text-emerald-600' : 'bg-slate-50 text-slate-400 border border-slate-200' }}">
                 4. TTD Customer
             </div>
         </div>
@@ -174,8 +174,8 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-slate-700 mb-1.5 font-bold">Pilih File Foto (Bisa dari Kamera HP)</label>
-                        <input type="file" name="foto" accept="image/*" capture="environment" required class="w-full text-slate-600 file:mr-3 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#002266] file:text-white hover:file:bg-[#001233]">
+                        <label class="block text-slate-700 mb-1.5 font-bold">Pilih Foto/Video (Kamera atau Galeri HP)</label>
+                        <input type="file" name="foto" accept="image/*,video/*" required class="w-full text-slate-600 file:mr-3 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#002266] file:text-white hover:file:bg-[#001233]">
                     </div>
                 </div>
                 <div>
@@ -214,8 +214,8 @@
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-slate-700 mb-1.5 font-bold">Bukti Foto Nota / Struk (Opsional)</label>
-                        <input type="file" name="bukti_nota" accept="image/*" capture="environment" class="w-full text-slate-600 file:mr-3 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300">
+                        <label class="block text-slate-700 mb-1.5 font-bold">Bukti Foto/Video Nota / Struk (Opsional)</label>
+                        <input type="file" name="bukti_nota" accept="image/*,video/*" class="w-full text-slate-600 file:mr-3 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300">
                     </div>
                     <div>
                         <label class="block text-slate-700 mb-1.5 font-bold">Keterangan Tambahan</label>
@@ -227,8 +227,8 @@
         </div>
     @endif
 
-    <!-- SECTION 3: Form Pembuatan Laporan Siap Pakai -->
-    @if(Auth::user()->id_role == 3 && $kunjungan->status == 'Dikerjakan')
+    <!-- SECTION 3: Form Pembuatan Laporan Siap Pakai (disembunyikan setelah check-out) -->
+    @if(Auth::user()->id_role == 3 && $kunjungan->status == 'Dikerjakan' && !$kunjungan->laporan)
         <div class="p-5 md:p-6 rounded-2xl bg-blue-50 border border-blue-200 shadow-sm space-y-4">
             <h4 class="text-sm font-bold text-[#002266]">📝 Input Catatan & Check-Out</h4>
             <p class="text-xs text-slate-600 font-medium">Tuliskan ringkasan hasil pengerjaan. Sistem akan memverifikasi lokasi GPS Anda untuk proses Check-Out.</p>
@@ -249,27 +249,74 @@
         </div>
     @endif
 
+    <!-- SECTION 3b: Revisi Catatan Pekerjaan (tampil setelah check-out, sebelum TTD) -->
+    @if(Auth::user()->id_role == 3 && $kunjungan->laporan && !$kunjungan->laporan->buktiPenyelesaian)
+        @php $aktivitasTerakhir = $kunjungan->aktivitas->sortByDesc('created_at')->first(); @endphp
+        <div class="p-5 md:p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
+            <h4 class="text-sm font-bold text-[#002266]">📝 Revisi Catatan Pekerjaan</h4>
+            <p class="text-xs text-slate-600 font-medium">Catatan ini tampil di laporan PDF pada kolom "Deskripsi & Catatan Akhir". Anda masih bisa merevisinya sebelum customer menandatangani laporan.</p>
+
+            <form action="{{ route('kunjungan.revisi-catatan', $kunjungan->id_kunjungan) }}" method="POST" class="space-y-3">
+                @csrf
+                <div>
+                    <label class="block text-slate-700 text-xs font-bold mb-1.5">Deskripsi / Hasil Pekerjaan Lapangan:</label>
+                    <textarea name="catatan" rows="4" required class="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#003399]">{{ old('catatan', $aktivitasTerakhir->catatan ?? '') }}</textarea>
+                </div>
+
+                <button type="submit" class="px-5 py-2.5 bg-[#003399] hover:bg-[#002266] text-white rounded-xl text-xs font-bold shadow-md transition">
+                    Simpan Revisi Catatan
+                </button>
+            </form>
+        </div>
+    @endif
+
     <!-- SECTION 4: Kotak Tanda Tangan Digital Khusus Customer -->
     @if(($kunjungan->status == 'Dikerjakan' &&$kunjungan->laporan) || ($kunjungan->laporan && !$kunjungan->laporan->buktiPenyelesaian))
         <div class="p-5 md:p-6 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm space-y-4">
             <div class="flex items-center gap-2">
                 <span class="w-3 h-3 rounded-full bg-amber-500 animate-ping"></span>
-                <h4 class="text-sm font-bold text-amber-700">✍ Verifikasi Tanda Tangan Customer</h4>
+                <h4 class="text-sm font-bold text-amber-700">✍ Verifikasi Tanda Tangan Customer & Engineer</h4>
             </div>
-            <p class="text-xs text-amber-800 font-medium">Silakan sodorkan HP ke Customer / PIC <strong>({{ $kunjungan->customer->pic ?? 'PIC Perusahaan' }})</strong> untuk membubuhkan tanda tangan langsung pada kotak di bawah:</p>
-            
+            <p class="text-xs text-amber-800 font-medium">Silakan sodorkan HP ke Customer / PIC <strong>({{ $kunjungan->customer->pic ?? 'PIC Perusahaan' }})</strong> untuk membubuhkan tanda tangan pada kotak pertama, lalu Engineer membubuhkan tanda tangan pada kotak kedua:</p>
+
             <form id="signatureForm" action="{{ route('kunjungan.signature', $kunjungan->id_kunjungan) }}" method="POST" class="space-y-4">
                 @csrf
                 <input type="hidden" name="signature" id="signatureInput">
-                
-                <div class="border-2 border-slate-300 bg-white rounded-xl overflow-hidden shadow-inner touch-none">
-                    <canvas id="signaturePad" class="w-full h-56 block cursor-crosshair"></canvas>
+                <input type="hidden" name="signature_engineer" id="signatureEngineerInput">
+
+                <div>
+                    <p class="text-xs font-bold text-slate-700 mb-1.5">Tanda Tangan Customer / PIC:</p>
+                    <div id="sigWrapCustomer" data-locked="1" class="relative border-2 border-slate-300 bg-white rounded-xl overflow-hidden shadow-inner touch-pan-x touch-pan-y">
+                        <canvas id="signaturePad" class="w-full h-56 block cursor-crosshair"></canvas>
+                        <div id="sigBadgeCustomer" class="absolute top-2 right-2 px-2 py-1 rounded-lg text-[11px] font-bold pointer-events-none bg-slate-800/70 text-white">🔒 Terkunci</div>
+                    </div>
+                    <div class="mt-2 flex flex-col sm:flex-row gap-2">
+                        <button type="button" id="lockBtnCustomer" onclick="togglePadLock('customer')" class="w-full sm:w-auto px-4 py-2 bg-amber-100 border border-amber-300 text-amber-800 rounded-xl text-xs font-bold hover:bg-amber-200 transition">
+                            🔓 Buka Kunci TTD
+                        </button>
+                        <button type="button" onclick="clearSignature()" class="w-full sm:w-auto px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition">
+                            Hapus & Ulangi TTD Customer
+                        </button>
+                    </div>
                 </div>
 
-                <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <button type="button" onclick="clearSignature()" class="w-full sm:w-auto px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition">
-                        Hapus & Ulangi TTD
-                    </button>
+                <div>
+                    <p class="text-xs font-bold text-slate-700 mb-1.5">Tanda Tangan Engineer ({{ $kunjungan->engineer->user->nama ?? 'Engineer' }}):</p>
+                    <div id="sigWrapEngineer" data-locked="1" class="relative border-2 border-slate-300 bg-white rounded-xl overflow-hidden shadow-inner touch-pan-x touch-pan-y">
+                        <canvas id="signaturePadEngineer" class="w-full h-56 block cursor-crosshair"></canvas>
+                        <div id="sigBadgeEngineer" class="absolute top-2 right-2 px-2 py-1 rounded-lg text-[11px] font-bold pointer-events-none bg-slate-800/70 text-white">🔒 Terkunci</div>
+                    </div>
+                    <div class="mt-2 flex flex-col sm:flex-row gap-2">
+                        <button type="button" id="lockBtnEngineer" onclick="togglePadLock('engineer')" class="w-full sm:w-auto px-4 py-2 bg-amber-100 border border-amber-300 text-amber-800 rounded-xl text-xs font-bold hover:bg-amber-200 transition">
+                            🔓 Buka Kunci TTD
+                        </button>
+                        <button type="button" onclick="clearSignatureEngineer()" class="w-full sm:w-auto px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition">
+                            Hapus & Ulangi TTD Engineer
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row items-center justify-end gap-3 pt-1">
                     <button type="button" onclick="submitSignature()" class="w-full sm:w-auto px-6 py-2.5 bg-[#002266] hover:bg-[#001233] text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-900/20 transition">
                         Selesaikan & Kunci Laporan Resmi
                     </button>
@@ -280,13 +327,26 @@
 
     <!-- SECTION 5: Bukti Dokumen Terverifikasi -->
     @if($kunjungan->laporan &&$kunjungan->laporan->buktiPenyelesaian)
-        <div class="p-5 md:p-6 rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
-            <div>
-                <h4 class="text-sm font-bold text-emerald-700">Pekerjaan Selesai & Dokumen Terverifikasi Resmi</h4>
-                <p class="text-xs text-emerald-600 font-medium mt-1">Ditandatangani oleh PIC pada: {{ $kunjungan->laporan->buktiPenyelesaian->tanggal_tanda_tangan }}</p>
+        <div class="p-5 md:p-6 rounded-2xl bg-emerald-50 border border-emerald-200 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                    <h4 class="text-sm font-bold text-emerald-700">Pekerjaan Selesai & Dokumen Terverifikasi Resmi</h4>
+                    <p class="text-xs text-emerald-600 font-medium mt-1">Ditandatangani oleh PIC pada: {{ $kunjungan->laporan->buktiPenyelesaian->tanggal_tanda_tangan }}</p>
+                </div>
             </div>
-            <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
-                <img src="{{ $kunjungan->laporan->buktiPenyelesaian->tanda_tangan_customer }}" alt="Customer Signature" class="h-14 object-contain">
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-sm text-center">
+                    <p class="text-[11px] font-bold text-slate-500 mb-1">TTD Customer</p>
+                    <img src="{{ $kunjungan->laporan->buktiPenyelesaian->tanda_tangan_customer }}" alt="Customer Signature" class="h-14 object-contain mx-auto">
+                </div>
+                <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-sm text-center">
+                    <p class="text-[11px] font-bold text-slate-500 mb-1">TTD Engineer</p>
+                    @if($kunjungan->laporan->buktiPenyelesaian->tanda_tangan_engineer)
+                    <img src="{{ $kunjungan->laporan->buktiPenyelesaian->tanda_tangan_engineer }}" alt="Engineer Signature" class="h-14 object-contain mx-auto">
+                    @else
+                    <p class="text-[11px] italic text-slate-400">-</p>
+                    @endif
+                </div>
             </div>
         </div>
     @endif
@@ -317,15 +377,66 @@
             </div>
         </div>
 
-        <div class="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-3 text-xs">
+        <div class="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-5 text-xs">
             <h4 class="text-xs font-bold text-[#002266] uppercase tracking-wider border-b border-slate-100 pb-2">Log Waktu & Lokasi GPS</h4>
-            @php $act =$kunjungan->aktivitas->last(); @endphp
-            <div class="space-y-2 font-medium text-slate-600">
-                <p><strong class="text-slate-800">Koordinat Check-in:</strong> <span class="font-mono font-bold text-[#003399]">{{ $act->lokasi ?? 'Belum check-in' }}</span></p>
-                <p><strong class="text-slate-800">Waktu Check-in:</strong> {{ $act->waktu_mulai ?? '-' }}</p>
-                <p><strong class="text-slate-800">Waktu Check-out:</strong> {{ $act->waktu_selesai ?? '-' }}</p>
-                <p><strong class="text-slate-800">Catatan Engineer:</strong> {{ $act->catatan ?? '-' }}</p>
+            @php
+                $act = $kunjungan->aktivitas->last();
+                $ciLat = $kunjungan->check_in_latitude;
+                $ciLng = $kunjungan->check_in_longitude;
+                if ((!$ciLat || !$ciLng) && $act && $act->lokasi) {
+                    $ciParts = explode(',', $act->lokasi);
+                    $ciLat = trim($ciParts[0] ?? '');
+                    $ciLng = trim($ciParts[1] ?? '');
+                }
+                $coLat = $kunjungan->check_out_latitude;
+                $coLng = $kunjungan->check_out_longitude;
+            @endphp
+
+            <!-- Lokasi Check-in -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                    <p class="font-bold text-slate-800">📍 Lokasi Check-in</p>
+                    @if($ciLat && $ciLng)
+                    <a href="https://www.google.com/maps/search/?api=1&query={{ $ciLat }},{{ $ciLng }}" target="_blank" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5">
+                        🗺️ Buka Google Maps
+                    </a>
+                    @endif
+                </div>
+                @if($ciLat && $ciLng)
+                    <p class="font-mono font-bold text-[#003399]">{{ $ciLat }}, {{ $ciLng }}</p>
+                    <div class="w-full h-48 rounded-xl overflow-hidden border border-slate-200 shadow-inner">
+                        <iframe class="w-full h-full border-0" loading="lazy" allowfullscreen
+                            src="https://maps.google.com/maps?q={{ $ciLat }},{{ $ciLng }}&z=16&output=embed"></iframe>
+                    </div>
+                @else
+                    <p class="italic text-slate-400 font-medium">Belum check-in</p>
+                @endif
+                <p class="font-medium text-slate-600"><strong class="text-slate-800">Waktu Check-in:</strong> {{ $act->waktu_mulai ?? '-' }}</p>
             </div>
+
+            <!-- Lokasi Check-out -->
+            <div class="space-y-2 border-t border-slate-100 pt-4">
+                <div class="flex items-center justify-between gap-2">
+                    <p class="font-bold text-slate-800">📍 Lokasi Check-out</p>
+                    @if($coLat && $coLng)
+                    <a href="https://www.google.com/maps/search/?api=1&query={{ $coLat }},{{ $coLng }}" target="_blank" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5">
+                        🗺️ Buka Google Maps
+                    </a>
+                    @endif
+                </div>
+                @if($coLat && $coLng)
+                    <p class="font-mono font-bold text-[#003399]">{{ $coLat }}, {{ $coLng }}</p>
+                    <div class="w-full h-48 rounded-xl overflow-hidden border border-slate-200 shadow-inner">
+                        <iframe class="w-full h-full border-0" loading="lazy" allowfullscreen
+                            src="https://maps.google.com/maps?q={{ $coLat }},{{ $coLng }}&z=16&output=embed"></iframe>
+                    </div>
+                @else
+                    <p class="italic text-slate-400 font-medium">Belum check-out</p>
+                @endif
+                <p class="font-medium text-slate-600"><strong class="text-slate-800">Waktu Check-out:</strong> {{ $act->waktu_selesai ?? '-' }}</p>
+            </div>
+
+            <p class="font-medium text-slate-600 border-t border-slate-100 pt-3"><strong class="text-slate-800">Catatan Engineer:</strong> {{ $act->catatan ?? '-' }}</p>
         </div>
     </div>
 
@@ -352,7 +463,7 @@
                             <td class="p-3">{{ $peng->keterangan ?? '-' }}</td>
                             <td class="p-3">
                                 @if($peng->bukti_nota)
-                                    <a href="{{ asset($peng->bukti_nota) }}" target="_blank" class="text-[#0044cc] hover:underline font-bold">Lihat Foto</a>
+                                    <a href="{{ asset($peng->bukti_nota) }}" target="_blank" class="text-[#0044cc] hover:underline font-bold">Lihat Bukti</a>
                                 @else
                                     <span class="text-slate-400 italic">Tidak ada struk</span>
                                 @endif
@@ -383,7 +494,12 @@
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             @forelse($kunjungan->dokumentasi as $doc)
                 <div class="rounded-xl overflow-hidden bg-slate-50 border border-slate-200 shadow-sm">
-                    <img src="{{ asset($doc->file_foto) }}" alt="Dokumentasi" class="w-full h-32 object-cover">
+                    @php $ext = strtolower(pathinfo($doc->file_foto, PATHINFO_EXTENSION)); @endphp
+                    @if(in_array($ext, ['mp4','mov','3gp','webm']))
+                        <video src="{{ asset($doc->file_foto) }}" controls class="w-full h-32 object-cover bg-black"></video>
+                    @else
+                        <img src="{{ asset($doc->file_foto) }}" alt="Dokumentasi" class="w-full h-32 object-cover">
+                    @endif
                     <div class="p-2 text-[10px]">
                         <span class="px-2 py-0.5 rounded bg-blue-100 text-[#003399] font-bold uppercase">{{ $doc->kategori_foto }}</span>
                         <p class="text-slate-600 mt-1.5 font-medium truncate">{{ $doc->keterangan ?? '-' }}</p>
@@ -478,37 +594,76 @@
         }
     }
 
-    let signaturePad;
-    document.addEventListener('DOMContentLoaded', () => {
-        const canvas = document.getElementById('signaturePad');
-        if (canvas) {
-            signaturePad = new SignaturePad(canvas, {
-                backgroundColor: 'rgb(255, 255, 255)',
-                penColor: 'rgb(0, 0, 0)'
-            });
-
-            function resizeCanvas() {
-                const ratio = Math.max(window.devicePixelRatio || 1, 1);
-                canvas.width = canvas.offsetWidth * ratio;
-                canvas.height = canvas.offsetHeight * ratio;
-                canvas.getContext("2d").scale(ratio, ratio);
-                signaturePad.clear();
-            }
-            window.addEventListener("resize", resizeCanvas);
-            resizeCanvas();
+    let signaturePad, signaturePadEngineer;
+    function initPad(canvasId) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return null;
+        const pad = new SignaturePad(canvas, {
+            backgroundColor: 'rgb(255, 255, 255)',
+            penColor: 'rgb(0, 0, 0)'
+        });
+        function resizeCanvas() {
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            canvas.width = canvas.offsetWidth * ratio;
+            canvas.height = canvas.offsetHeight * ratio;
+            canvas.getContext("2d").scale(ratio, ratio);
+            pad.clear();
         }
+        window.addEventListener("resize", resizeCanvas);
+        resizeCanvas();
+        return pad;
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        signaturePad = initPad('signaturePad');
+        signaturePadEngineer = initPad('signaturePadEngineer');
+        // Default terkunci agar scroll HP tidak mencoret TTD tanpa sengaja
+        setPadLock('customer', true);
+        setPadLock('engineer', true);
     });
+
+    function setPadLock(which, locked) {
+        const isCustomer = which === 'customer';
+        const pad = isCustomer ? signaturePad : signaturePadEngineer;
+        const wrap = document.getElementById(isCustomer ? 'sigWrapCustomer' : 'sigWrapEngineer');
+        const btn = document.getElementById(isCustomer ? 'lockBtnCustomer' : 'lockBtnEngineer');
+        const badge = document.getElementById(isCustomer ? 'sigBadgeCustomer' : 'sigBadgeEngineer');
+        if (!pad || !wrap || !btn || !badge) return;
+        wrap.dataset.locked = locked ? '1' : '0';
+        if (locked) { pad.off(); } else { pad.on(); }
+        wrap.classList.toggle('touch-none', !locked);
+        wrap.classList.toggle('touch-pan-x', locked);
+        wrap.classList.toggle('touch-pan-y', locked);
+        badge.textContent = locked ? '🔒 Terkunci' : '🔓 Mode Tanda Tangan';
+        badge.className = 'absolute top-2 right-2 px-2 py-1 rounded-lg text-[11px] font-bold pointer-events-none ' + (locked ? 'bg-slate-800/70 text-white' : 'bg-emerald-600/85 text-white');
+        btn.innerHTML = locked ? '🔓 Buka Kunci TTD' : '🔒 Kunci TTD';
+    }
+
+    function togglePadLock(which) {
+        const isCustomer = which === 'customer';
+        const wrap = document.getElementById(isCustomer ? 'sigWrapCustomer' : 'sigWrapEngineer');
+        if (!wrap) return;
+        setPadLock(which, wrap.dataset.locked !== '1');
+    }
 
     function clearSignature() {
         if (signaturePad) signaturePad.clear();
     }
 
+    function clearSignatureEngineer() {
+        if (signaturePadEngineer) signaturePadEngineer.clear();
+    }
+
     function submitSignature() {
         if (signaturePad && signaturePad.isEmpty()) {
-            showGPSModal('Tanda Tangan Kosong', 'Customer belum membubuhkan tanda tangan. Silakan isi terlebih dahulu pada kotak putih.', false);
+            showGPSModal('Tanda Tangan Kosong', 'Customer belum membubuhkan tanda tangan. Silakan isi terlebih dahulu pada kotak TTD Customer.', false);
+            return;
+        }
+        if (signaturePadEngineer && signaturePadEngineer.isEmpty()) {
+            showGPSModal('Tanda Tangan Kosong', 'Engineer belum membubuhkan tanda tangan. Silakan isi terlebih dahulu pada kotak TTD Engineer.', false);
             return;
         }
         document.getElementById('signatureInput').value = signaturePad.toDataURL();
+        document.getElementById('signatureEngineerInput').value = signaturePadEngineer.toDataURL();
         showConfirmModal(
             document.getElementById('signatureForm'),
             'Kunci Laporan',

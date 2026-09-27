@@ -257,7 +257,7 @@ class KunjunganController extends Controller
     {
         $request->validate([
             'kategori_foto' => 'required|in:Sebelum,Proses,Sesudah,Lainnya',
-            'foto' => 'required|image|mimes:jpeg,png,jpg|max:5120',
+            'foto' => 'required|file|mimes:jpeg,png,jpg,mp4,mov,3gp,webm|max:51200',
             'keterangan' => 'nullable|string',
         ]);
 
@@ -282,7 +282,7 @@ class KunjunganController extends Controller
             'jenis_biaya' => 'required|string|max:100',
             'nominal' => 'required|integer|min:0',
             'keterangan' => 'nullable|string',
-            'bukti_nota' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+            'bukti_nota' => 'nullable|file|mimes:jpeg,png,jpg,mp4,mov,3gp,webm|max:51200',
         ]);
 
         $path = null;
@@ -342,11 +342,33 @@ class KunjunganController extends Controller
         return redirect()->back()->with('success', 'Check-out berhasil! Menunggu verifikasi tanda tangan customer.');
     }
 
-    // 10. Tanda Tangan Customer
+    // 9b. Revisi Catatan Pekerjaan (sebelum laporan dikunci TTD customer)
+    public function revisiCatatan(Request $request, $id)
+    {
+        $kunjungan = Kunjungan::with('laporan.buktiPenyelesaian')->findOrFail($id);
+
+        if (!$kunjungan->laporan || $kunjungan->laporan->buktiPenyelesaian) {
+            return redirect()->back()->with('error', 'Catatan tidak dapat direvisi karena laporan sudah dikunci tanda tangan.');
+        }
+
+        $request->validate([
+            'catatan' => 'required|string',
+        ]);
+
+        $aktivitas = AktivitasPekerjaan::where('id_kunjungan', $id)->latest()->first();
+        if ($aktivitas) {
+            $aktivitas->update(['catatan' => $request->catatan]);
+        }
+
+        return redirect()->back()->with('success', 'Catatan berhasil direvisi dan akan tampil di laporan PDF.');
+    }
+
+    // 10. Tanda Tangan Customer & Engineer
     public function verifySignature(Request $request, $id)
     {
         $request->validate([
             'signature' => 'required|string',
+            'signature_engineer' => 'required|string',
         ]);
 
         $kunjungan = Kunjungan::findOrFail($id);
@@ -356,6 +378,7 @@ class KunjunganController extends Controller
             ['id_laporan' => $laporan->id_laporan],
             [
                 'tanda_tangan_customer' => $request->signature,
+                'tanda_tangan_engineer' => $request->signature_engineer,
                 'tanggal_tanda_tangan' => now(),
                 'status' => 'Ditandatangani',
             ]
@@ -363,7 +386,7 @@ class KunjunganController extends Controller
 
         $kunjungan->update(['status' => 'Selesai']);
 
-        return redirect()->route('kunjungan.show', $id)->with('success', 'Kunjungan kerja selesai secara resmi dan dokumen telah ditandatangani!');
+        return redirect()->route('kunjungan.show', $id)->with('success', 'Kunjungan kerja selesai secara resmi dan dokumen telah ditandatangani customer & engineer!');
     }
 
     // 11. Reschedule

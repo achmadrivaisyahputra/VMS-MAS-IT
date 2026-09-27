@@ -71,15 +71,33 @@
             width: 100%;
             margin-top: 25px;
             border-collapse: collapse;
+            table-layout: fixed;
         }
         .signature-box {
             text-align: center;
             width: 45%;
             vertical-align: top;
         }
+        .sig-label {
+            height: 30px;
+            font-size: 10px;
+        }
+        .sig-area {
+            height: 70px;
+            line-height: 70px;
+        }
         .sign-img {
             height: 60px;
-            margin: 5px 0;
+            vertical-align: middle;
+        }
+        .sig-name {
+            border-top: 1px solid #002266;
+            display: inline-block;
+            width: 80%;
+            padding-top: 3px;
+            font-weight: bold;
+            color: #1e293b;
+            font-size: 10px;
         }
         .footer-note {
             margin-top: 25px;
@@ -144,13 +162,21 @@
     </table>
 
     <!-- Ringkasan Pekerjaan & Waktu Aktual -->
+    @php
+        $gpsIn = ($kunjungan->check_in_latitude && $kunjungan->check_in_longitude)
+            ? $kunjungan->check_in_latitude.', '.$kunjungan->check_in_longitude
+            : ($aktivitas->lokasi ?? '-');
+        $gpsOut = ($kunjungan->check_out_latitude && $kunjungan->check_out_longitude)
+            ? $kunjungan->check_out_latitude.', '.$kunjungan->check_out_longitude
+            : '-';
+    @endphp
     <table class="data-table">
         <thead>
             <tr>
                 <th style="width: 25%;">Item Pekerjaan</th>
                 <th style="width: 35%;">Deskripsi & Catatan Akhir</th>
                 <th style="width: 20%;">Waktu Mulai (GPS)</th>
-                <th style="width: 20%;">Waktu Selesai</th>
+                <th style="width: 20%;">Waktu Selesai (GPS)</th>
             </tr>
         </thead>
         <tbody>
@@ -159,41 +185,13 @@
                 <td>{{ $aktivitas->catatan ?? 'Pekerjaan telah diselesaikan sesuai dengan instruksi kerja.' }}</td>
                 <td>
                     {{ $aktivitas->waktu_mulai ? date('d/m/Y H:i', strtotime($aktivitas->waktu_mulai)) : '-' }}<br>
-                    <small style="color: #003399; font-size: 8px;">GPS: {{ $aktivitas->lokasi ?? '-' }}</small>
+                    <small style="color: #003399; font-size: 8px;">GPS: {{ $gpsIn }}</small>
                 </td>
                 <td>
-                    {{ $aktivitas->waktu_selesai ? date('d/m/Y H:i', strtotime($aktivitas->waktu_selesai)) : '-' }}
+                    {{ $aktivitas->waktu_selesai ? date('d/m/Y H:i', strtotime($aktivitas->waktu_selesai)) : '-' }}<br>
+                    <small style="color: #003399; font-size: 8px;">GPS: {{ $gpsOut }}</small>
                 </td>
             </tr>
-        </tbody>
-    </table>
-
-    <!-- Tools / Alat Kerja yang Digunakan -->
-    <div style="font-weight: bold; margin-bottom: 5px; font-size: 10px; color: #002266;">DAFTAR ALAT / TOOLS YANG DIGUNAKAN:</div>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th style="width: 5%; text-align: center;">No</th>
-                <th style="width: 25%;">Kode Alat</th>
-                <th style="width: 40%;">Nama Alat</th>
-                <th style="width: 15%;">Kategori</th>
-                <th style="width: 15%;">Kondisi</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($kunjungan->tools as $index => $tool)
-                <tr>
-                    <td style="text-align: center;">{{ $index + 1 }}</td>
-                    <td style="font-family: monospace; font-weight: bold; color: #003399;">{{ $tool->kode }}</td>
-                    <td>{{ $tool->nama_alat }}</td>
-                    <td>{{ $tool->kategori }}</td>
-                    <td>{{ $tool->kondisi }}</td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="5" style="text-align: center; color: #64748b; font-style: italic;">Tidak ada alat tambahan yang terdaftar.</td>
-                </tr>
-            @endforelse
         </tbody>
     </table>
 
@@ -201,24 +199,31 @@
     <table class="signature-table">
         <tr>
             <td class="signature-box">
-                <div style="color: #475569;">Dikerjakan Oleh,</div>
-                <div style="font-weight: bold; color: #002266; margin-bottom: 45px;">Engineer MAS-IT</div>
-                <div style="border-top: 1px solid #002266; display: inline-block; width: 80%; padding-top: 3px; font-weight: bold; color: #1e293b;">
+                <div class="sig-label">
+                    <div style="color: #475569;">Dikerjakan Oleh,</div>
+                    <div style="font-weight: bold; color: #002266;">Engineer MAS-IT</div>
+                </div>
+                <div class="sig-area">
+                    @if($bukti && $bukti->tanda_tangan_engineer)
+                        <img src="{{ $bukti->tanda_tangan_engineer }}" class="sign-img" alt="Engineer Signature">
+                    @endif
+                </div>
+                <div class="sig-name">
                     {{ $kunjungan->engineer->user->nama ?? 'Engineer' }}
                 </div>
             </td>
             <td style="width: 10%;"></td>
             <td class="signature-box">
-                <div style="color: #475569;">Disetujui & Diverifikasi Oleh,</div>
-                <div style="font-weight: bold; color: #002266; margin-bottom: 5px;">Customer / Klien</div>
-                @if($bukti && $bukti->tanda_tangan_customer)
-                    <div>
+                <div class="sig-label">
+                    <div style="color: #475569;">Disetujui & Diverifikasi Oleh,</div>
+                    <div style="font-weight: bold; color: #002266;">Customer / Klien</div>
+                </div>
+                <div class="sig-area">
+                    @if($bukti && $bukti->tanda_tangan_customer)
                         <img src="{{ $bukti->tanda_tangan_customer }}" class="sign-img" alt="Digital Signature">
-                    </div>
-                @else
-                    <div style="height: 55px;"></div>
-                @endif
-                <div style="border-top: 1px solid #002266; display: inline-block; width: 80%; padding-top: 3px; font-weight: bold; color: #1e293b;">
+                    @endif
+                </div>
+                <div class="sig-name">
                     {{ $kunjungan->customer->pic ?? 'Customer PIC' }}
                 </div>
             </td>
