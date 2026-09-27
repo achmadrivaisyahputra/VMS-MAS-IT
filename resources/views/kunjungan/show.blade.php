@@ -46,13 +46,13 @@
     <div class="p-4 md:p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
         <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Status Alur Kunjungan</h4>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
-            <div class="p-2.5 rounded-xl font-bold {{ in_array($kunjungan->status, ['Terjadwal', 'Dikonfirmasi', 'Dikerjakan', 'Selesai']) ? 'bg-blue-50 border border-blue-200 text-[#003399]' : 'bg-slate-50 text-slate-400 border border-slate-200' }}">
-                1. Terjadwal / Dikonfirmasi
+            <div class="p-2.5 rounded-xl font-bold {{ $kunjungan->status == 'Terjadwal' ? 'bg-blue-50 border border-blue-200 text-[#003399]' : 'bg-slate-50 text-slate-400 border border-slate-200' }}">
+                1. Terjadwal
             </div>
-            <div class="p-2.5 rounded-xl font-bold {{ in_array($kunjungan->status, ['Dikerjakan', 'Selesai']) ? 'bg-blue-50 border border-blue-200 text-[#003399]' : 'bg-slate-50 text-slate-400 border border-slate-200' }}">
+            <div class="p-2.5 rounded-xl font-bold {{ $kunjungan->status == 'Dikonfirmasi' ? 'bg-blue-50 border border-blue-200 text-[#003399]' : 'bg-slate-50 text-slate-400 border border-slate-200' }}">
                 2. Check-in (GPS)
             </div>
-            <div class="p-2.5 rounded-xl font-bold {{ in_array($kunjungan->status, ['Dikerjakan', 'Selesai']) ? 'bg-blue-50 border border-blue-200 text-[#003399]' : 'bg-slate-50 text-slate-400 border border-slate-200' }}">
+            <div class="p-2.5 rounded-xl font-bold {{ $kunjungan->status == 'Dikerjakan' ? 'bg-blue-50 border border-blue-200 text-[#003399]' : 'bg-slate-50 text-slate-400 border border-slate-200' }}">
                 3. On-Site & Foto
             </div>
             <div class="p-2.5 rounded-xl font-bold {{ $kunjungan->status == 'Selesai' ? 'bg-emerald-50 border border-emerald-200 text-emerald-600' : 'bg-slate-50 text-slate-400 border border-slate-200' }}">
