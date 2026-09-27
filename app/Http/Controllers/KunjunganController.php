@@ -230,10 +230,10 @@ class KunjunganController extends Controller
 
         $a = sin($dLat/2) * sin($dLat/2) + cos(deg2rad($latTarget)) * cos(deg2rad($latEngineer)) * sin($dLon/2) * sin($dLon/2);
         $c = 2 * atan2(sqrt($a), sqrt(1-$a));
-        $jarakKm = $earthRadius * $c;
+        $jarakMeter = $earthRadius * $c * 1000;
 
-        if ($jarakKm > 5) {
-            return redirect()->back()->with('error', 'Gagal Check-in! Anda berada di luar radius. Jarak Anda saat ini: ' . round($jarakKm, 2) . ' KM dari lokasi tujuan.');
+        if ($jarakMeter > 100) {
+            return redirect()->back()->with('error', 'Gagal Check-in! Anda berada di luar radius 100 meter dari lokasi kerja. Jarak Anda saat ini: ' . round($jarakMeter) . ' meter dari lokasi tujuan.');
         }
 
         $kunjungan->update([
@@ -249,7 +249,7 @@ class KunjunganController extends Controller
             'deskripsi' => 'Engineer tiba di lokasi dan memulai pengerjaan.',
         ]);
 
-        return redirect()->back()->with('success', 'Check-in berhasil! Jarak Anda: ' . round($jarakKm, 2) . ' KM dari target.');
+        return redirect()->back()->with('success', 'Check-in berhasil! Jarak Anda: ' . round($jarakMeter) . ' meter dari target.');
     }
 
     // 7. Engineer Upload Dokumentasi
