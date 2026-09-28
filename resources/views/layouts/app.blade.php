@@ -27,8 +27,19 @@
     <div class="md:hidden flex items-center justify-between p-4 bg-gradient-to-r from-[#001233] to-[#0044cc] border-b border-blue-900 sticky top-0 z-40 shadow-lg">
         <div class="flex items-center gap-3">
             <!-- LOGO MAS-IT DI MOBILE -->
-            <img src="{{ asset('images/logo-masit.png') }}" alt="MAS-IT Logo" class="h-8 object-contain drop-shadow-md">
-            <span class="font-bold text-sm text-white tracking-wide">MAS-IT VMS</span>
+            @php
+                $mobileDashboardRoute = match(Auth::user()->id_role ?? 0) {
+                    1 => 'kepala.dashboard',
+                    2 => 'pimpinan.dashboard',
+                    3 => 'engineer.dashboard',
+                    default => 'login',
+                };
+                $mobileDashboardUrl = route($mobileDashboardRoute);
+            @endphp
+            <a href="{{ $mobileDashboardUrl }}" onclick="window.location.href='{{ $mobileDashboardUrl }}'; return false;" class="flex items-center gap-3 cursor-pointer">
+                <img src="{{ asset('images/logo-masit.png') }}" alt="MAS-IT Logo" class="h-8 object-contain drop-shadow-md">
+                <span class="font-bold text-sm text-white tracking-wide">MAS-IT VMS</span>
+            </a>
         </div>
         <button onclick="toggleMobileSidebar()" class="p-2 text-blue-200 hover:text-white focus:outline-none">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"/></svg>
@@ -40,13 +51,22 @@
         <div class="flex flex-col h-full min-h-0">
             <!-- Brand Logo -->
             <div class="p-5 border-b border-blue-800/40 flex items-center justify-between">
-                <div class="flex items-center gap-3">
+                @php
+                    $dashboardRoute = match(Auth::user()->id_role ?? 0) {
+                        1 => 'kepala.dashboard',
+                        2 => 'pimpinan.dashboard',
+                        3 => 'engineer.dashboard',
+                        default => 'login',
+                    };
+                    $dashboardUrl = route($dashboardRoute);
+                @endphp
+                <a href="{{ $dashboardUrl }}" onclick="window.location.href='{{ $dashboardUrl }}'; return false;" class="flex items-center gap-3 cursor-pointer">
                     <img src="{{ asset('images/logo-masit.png') }}" alt="MAS-IT Logo" class="h-10 object-contain drop-shadow-md">
                     <div>
                         <h2 class="font-bold text-base tracking-tight text-white">MAS-IT VMS</h2>
                         <p class="text-[10px] text-blue-300 font-medium tracking-wider uppercase">{{ Auth::user()->role->nama_role ?? 'Pengguna' }}</p>
                     </div>
-                </div>
+                </a>
                 <div class="flex items-center gap-1">
                     <button onclick="toggleMobileSidebar()" class="md:hidden text-blue-300 hover:text-white text-2xl leading-none px-1">&times;</button>
                 </div>
