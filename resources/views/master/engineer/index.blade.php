@@ -80,7 +80,10 @@
                 <tbody class="divide-y divide-slate-100">
                     @forelse($engineers as $e)
                         <tr class="hover:bg-slate-50 transition-colors">
-                            <td class="p-4 font-bold text-[#003399]">{{ $e->user->nama ?? '-' }}</td>
+                            <td class="p-4">
+                                <span class="font-bold text-[#003399]">{{ $e->user->nama ?? '-' }}</span>
+                                @if($e->kode)<div class="text-[10px] font-mono font-bold text-slate-400 mt-0.5">{{ $e->kode }}</div>@endif
+                            </td>
                             <td class="p-4 font-medium">
                                 <p class="text-slate-800 font-mono font-bold">{{ $e->user->username ?? '-' }}</p>
                                 <p class="text-[10px] text-slate-500 mt-0.5">{{ $e->user->email ?? '-' }}</p>

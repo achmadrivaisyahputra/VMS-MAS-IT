@@ -59,8 +59,20 @@ class EngineerController extends Controller
             'dibuat_oleh' => Auth::user()->id_pengguna,
         ]);
 
+        // Generate kode engineer otomatis via Format Nomor
+        $fmt = \App\Models\FormatNomor::where('kode', 'engineer')->lockForUpdate()->first();
+        $kodeEngineer = null;
+        if ($fmt) {
+            $fmt->nomor_terakhir++;
+            $counter = str_pad($fmt->nomor_terakhir, $fmt->digit, '0', STR_PAD_LEFT);
+            $tahunPart = $fmt->tahun ? substr($fmt->tahun, -2) : '';
+            $kodeEngineer = $fmt->prefix . $tahunPart . $counter;
+            $fmt->save();
+        }
+
         Engineer::create([
             'id_pengguna' => $user->id_pengguna,
+            'kode' => $kodeEngineer,
             'kontak' => $request->kontak,
             'status_ketersediaan' => 'Tersedia',
         ]);

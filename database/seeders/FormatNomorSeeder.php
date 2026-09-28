@@ -37,6 +37,15 @@ class FormatNomorSeeder extends Seeder
                 'digit' => 3,
                 'nomor_terakhir' => 0,
             ],
+            [
+                'kode' => 'engineer',
+                'jenis' => 'Kode Engineer',
+                'deskripsi' => 'Kode unik berurutan untuk setiap engineer/teknisi yang didaftarkan.',
+                'prefix' => 'eng',
+                'tahun' => 2026,
+                'digit' => 3,
+                'nomor_terakhir' => 0,
+            ],
         ];
 
         foreach ($defaults as $row) {
