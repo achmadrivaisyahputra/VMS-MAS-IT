@@ -58,4 +58,13 @@ class Kunjungan extends Model
         return $this->belongsToMany(Engineer::class, 'kunjungan_support', 'id_kunjungan', 'id_engineer')
                     ->withTimestamps();
     }
+
+    /**
+     * Alamat kunjungan yang selalu sinkron dengan data site terkini.
+     * Jika kunjungan terhubung ke site, pakai alamat site (live dari master).
+     */
+    public function getAlamatSinkronAttribute()
+    {
+        return $this->site->alamat_lengkap ?? $this->lokasi;
+    }
 }

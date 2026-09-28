@@ -74,6 +74,13 @@
                     <span>Kunjungan Kerja</span>
                 </a>
 
+                @if($roleId == 3)
+                    <a href="{{ route('peminjaman.pengembalian') }}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition {{ str_contains($currentRoute, 'peminjaman') ? 'bg-white/20 text-white shadow-lg border border-white/10' : 'text-blue-100 hover:bg-white/10 hover:text-white' }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 15v-1a3 3 0 00-3-3H6a3 3 0 00-3 3v1m18 0v-1a3 3 0 00-3-3h-1m-4 8h6m-6 0H6m12 0a2 2 0 002-2v-4a2 2 0 00-2-2h-2m-4-4h.01M6 20h.01"/></svg>
+                        <span>Pengembalian Tools</span>
+                    </a>
+                @endif
+
                 @if($roleId == 1 || $roleId == 2)
                     <div class="pt-3 pb-1 text-[10px] uppercase font-bold text-blue-300/80 tracking-wider">Master Data</div>
                     <a href="{{ route('master.customer.index') }}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition {{ str_contains($currentRoute, 'master.customer') ? 'bg-white/20 text-white shadow-lg border border-white/10' : 'text-blue-100 hover:bg-white/10 hover:text-white' }}">

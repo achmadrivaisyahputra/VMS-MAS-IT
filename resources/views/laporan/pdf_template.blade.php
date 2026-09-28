@@ -157,7 +157,7 @@
         </tr>
         <tr>
             <td style="font-weight: bold; color: #002266;">Lokasi Pekerjaan</td>
-            <td colspan="3">: {{ $kunjungan->lokasi }}</td>
+            <td colspan="3">: {{ $kunjungan->alamat_sinkron }}@if($kunjungan->patokan) ({{ $kunjungan->patokan }})@endif</td>
         </tr>
     </table>
 

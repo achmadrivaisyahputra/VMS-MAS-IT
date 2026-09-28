@@ -7,6 +7,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\SiteController;
 use App\Http\Controllers\EngineerController;
 use App\Http\Controllers\ToolController;
+use App\Http\Controllers\PeminjamanToolController;
 use App\Http\Controllers\KunjunganController;
 use App\Http\Controllers\LaporanController;
 
@@ -53,6 +54,21 @@ Route::middleware(['auth', 'role:Kepala Pimpinan,Pimpinan'])->prefix('master')->
     
     // Tool
     Route::resource('tool', ToolController::class)->except(['create', 'show', 'edit']);
+    Route::post('tool/{id}/tambah-stok', [ToolController::class, 'tambahStok'])->name('tool.tambah-stok');
+    // Riwayat peminjaman semua tools (pimpinan/admin)
+    Route::get('peminjaman/riwayat-semua', [PeminjamanToolController::class, 'riwayatSemua'])->name('peminjaman.riwayat-semua');
+});
+
+// Rute Peminjaman Tools (semua role login)
+Route::middleware(['auth'])->prefix('peminjaman')->name('peminjaman.')->group(function () {
+    // Halaman Pengembalian Tools (engineer)
+    Route::get('/pengembalian', [PeminjamanToolController::class, 'pengembalian'])->name('pengembalian');
+    // Pinjam tools (keperluan lain)
+    Route::post('/pinjam', [PeminjamanToolController::class, 'store'])->name('pinjam');
+    // Kembalikan tools
+    Route::post('/{id}/kembalikan', [PeminjamanToolController::class, 'kembalikan'])->name('kembalikan');
+    // Riwayat per tool
+    Route::get('/riwayat/{tool}', [PeminjamanToolController::class, 'riwayat'])->name('riwayat');
 });
 
 // Rute Kunjungan
@@ -84,6 +100,8 @@ Route::middleware(['auth'])->prefix('kunjungan')->name('kunjungan.')->group(func
 
     // Verifikasi Tanda Tangan Customer
     Route::post('/{id}/signature', [KunjunganController::class, 'verifySignature'])->name('signature');
+    // Simpan draft TTD otomatis (agar tidak hilang saat refresh)
+    Route::post('/{id}/signature-draft', [KunjunganController::class, 'saveSignatureDraft'])->name('signature-draft');
 });
 
 // Rute Laporan, Cetak PDF, dan Approval

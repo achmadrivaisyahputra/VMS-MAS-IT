@@ -51,7 +51,10 @@
                         <span class="px-2 py-0.5 rounded bg-blue-100 text-[#003399] text-[10px] font-bold uppercase">{{ $kunjunganAktif->nomor }}</span>
                         <h5 class="text-base font-bold text-slate-800 mt-2">{{ $kunjunganAktif->pekerjaan }}</h5>
                         <p class="text-xs text-slate-600 font-semibold">{{ $kunjunganAktif->customer->nama_perusahaan ?? '-' }}</p>
-                        <p class="text-xs text-slate-500 mt-0.5">{{ $kunjunganAktif->lokasi }}</p>
+                        <p class="text-xs text-slate-500 mt-0.5">📍 {{ $kunjunganAktif->alamat_sinkron }}</p>
+                        @if($kunjunganAktif->patokan)
+                            <p class="text-[11px] text-amber-600 font-semibold mt-0.5">📎 {{ $kunjunganAktif->patokan }}</p>
+                        @endif
                         
                         <p class="text-[10px] mt-2 inline-block px-2 py-1 rounded-md bg-white border border-slate-200 text-slate-600 font-medium">
                             Peran Anda: <strong class="text-[#003399]">{{ $kunjunganAktif->id_engineer == $engineer->id_engineer ? 'Lead Engineer' : 'Tim Support' }}</strong>

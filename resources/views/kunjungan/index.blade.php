@@ -94,7 +94,10 @@
                                         📍 Cabang: {{ $k->site->nama_cabang }}
                                     </span>
                                 @endif
-                                <p class="text-[10px] text-slate-500 truncate max-w-xs mt-0.5" title="{{ $k->lokasi }}">{{ $k->lokasi }}</p>
+                                <p class="text-[10px] text-slate-500 truncate max-w-xs mt-0.5" title="{{ $k->alamat_sinkron }}">{{ $k->alamat_sinkron }}</p>
+                                @if($k->patokan)
+                                    <p class="text-[10px] text-amber-600 font-semibold truncate max-w-xs" title="{{ $k->patokan }}">📎 {{ $k->patokan }}</p>
+                                @endif
                             </td>
                             <td class="p-4 font-medium text-slate-700 align-top">{{ $k->pekerjaan }}</td>
                             <td class="p-4 align-top">
@@ -144,7 +147,7 @@
                                         <label class="block text-slate-700 font-semibold mb-1.5">Customer / Klien</label>
                                         <select name="id_customer" data-target-site="id_site_edit_{{ $k->id_kunjungan }}" required class="customer-select-edit w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#003399]">
                                             @foreach($customers as $c)
-                                                <option value="{{ $c->id_customer }}" {{ $k->id_customer == $c->id_customer ? 'selected' : '' }}>{{ $c->nama_perusahaan }}</option>
+                                                <option value="{{ $c->id_customer }}" data-alamat="{{ $c->alamat }}" {{ $k->id_customer == $c->id_customer ? 'selected' : '' }}>{{ $c->nama_perusahaan }}</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -192,8 +195,13 @@
                                         <input type="text" name="pekerjaan" value="{{ $k->pekerjaan }}" required class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#003399]">
                                     </div>
                                     <div>
-                                        <label class="block text-slate-700 font-semibold mb-1.5">Alamat / Patokan Kunjungan</label>
-                                        <textarea name="lokasi" rows="2" required class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#003399]">{{ $k->lokasi }}</textarea>
+                                        <label class="block text-slate-700 font-semibold mb-1.5">Alamat Kunjungan 🔒</label>
+                                        <textarea rows="2" readonly placeholder="Otomatis terisi dari alamat site/customer..." class="lokasi-edit w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl text-slate-500 focus:outline-none cursor-not-allowed">{{ $k->alamat_sinkron }}</textarea>
+                                        <p class="text-[10px] text-slate-400 mt-1 font-medium">🔒 Terkunci — mengikuti alamat site/customer yang dipilih.</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-slate-700 font-semibold mb-1.5">Patokan <span class="text-slate-400 font-normal">(opsional)</span></label>
+                                        <textarea name="patokan" rows="2" placeholder="Contoh: Lantai 3, Gedung B, dekat lobby..." class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#003399]">{{ $k->patokan }}</textarea>
                                     </div>
                                     <div>
                                         <label class="block text-slate-700 font-semibold mb-1.5">Tools & Alat yang Dibawa</label>
@@ -247,7 +255,7 @@
                 <select name="id_customer" id="id_customer_add" required class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#003399]">
                     <option value="">Pilih Customer</option>
                     @foreach($customers as $c)
-                        <option value="{{ $c->id_customer }}">{{ $c->nama_perusahaan }} ({{$c->pic }})</option>
+                        <option value="{{ $c->id_customer }}" data-alamat="{{ $c->alamat }}">{{ $c->nama_perusahaan }} ({{$c->pic }})</option>
                     @endforeach
                 </select>
             </div>
@@ -293,8 +301,13 @@
                 <input type="text" name="pekerjaan" placeholder="Misal: Instalasi Router Core & Switch" required class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#003399]">
             </div>
             <div>
-                <label class="block text-slate-700 font-semibold mb-1.5">Alamat / Patokan Kunjungan</label>
-                <textarea name="lokasi" rows="2" placeholder="Detail area gedung / lantai..." required class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#003399]"></textarea>
+                <label class="block text-slate-700 font-semibold mb-1.5">Alamat Kunjungan 🔒</label>
+                <textarea id="lokasi_add" rows="2" readonly placeholder="Otomatis terisi dari alamat site/customer..." class="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl text-slate-500 focus:outline-none cursor-not-allowed"></textarea>
+                <p class="text-[10px] text-slate-400 mt-1 font-medium">🔒 Terkunci — mengikuti alamat site/customer yang dipilih.</p>
+            </div>
+            <div>
+                <label class="block text-slate-700 font-semibold mb-1.5">Patokan <span class="text-slate-400 font-normal">(opsional)</span></label>
+                <textarea name="patokan" rows="2" placeholder="Contoh: Lantai 3, Gedung B, dekat lobby..." class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#003399]"></textarea>
             </div>
             <div>
                 <label class="block text-slate-700 font-semibold mb-1.5">Tools & Alat yang Dibawa</label>
@@ -369,7 +382,24 @@
             }
         });
 
-        // --- SCRIPT AJAX FETCH CABANG/SITE (FITUR BARU) ---
+        // --- SCRIPT AJAX FETCH CABANG/SITE + AUTO-FILL ALAMAT ---
+        const escAttr = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        const alamatOfOption = (selectEl) => {
+            const opt = selectEl.options[selectEl.selectedIndex];
+            return opt ? (opt.getAttribute('data-alamat') || '') : '';
+        };
+
+        // Isi textarea lokasi dari site yang dipilih; jika tanpa site, pakai alamat customer
+        const syncLokasi = (siteSelectEl, lokasiEl, customerSelectEl) => {
+            if (!lokasiEl) return;
+            if (siteSelectEl.value) {
+                const alamatSite = alamatOfOption(siteSelectEl);
+                if (alamatSite) lokasiEl.value = alamatSite;
+            } else if (customerSelectEl) {
+                lokasiEl.value = alamatOfOption(customerSelectEl);
+            }
+        };
+
         const loadSitesAjax = (idCustomer, siteSelectElement, selectedSiteId = null) => {
             siteSelectElement.innerHTML = '<option value="">Memuat data...</option>';
             siteSelectElement.disabled = true;
@@ -386,7 +416,7 @@
                     siteSelectElement.innerHTML = '<option value="">Pusat / Tanpa Cabang</option>';
                     data.forEach(site => {
                         let isSelected = (selectedSiteId == site.id_site) ? 'selected' : '';
-                        siteSelectElement.innerHTML += `<option value="${site.id_site}" ${isSelected}>${site.nama_cabang}</option>`;
+                        siteSelectElement.innerHTML += `<option value="${site.id_site}" data-alamat="${escAttr(site.alamat_lengkap)}" ${isSelected}>${site.nama_cabang}</option>`;
                     });
                 })
                 .catch(err => {
@@ -398,8 +428,14 @@
         // Trigger AJAX untuk Modal Tambah Kunjungan
         const customerAdd = document.getElementById('id_customer_add');
         const siteAdd = document.getElementById('id_site_add');
+        const lokasiAdd = document.getElementById('lokasi_add');
         if(customerAdd && siteAdd) {
-            customerAdd.addEventListener('change', (e) => loadSitesAjax(e.target.value, siteAdd));
+            customerAdd.addEventListener('change', (e) => {
+                loadSitesAjax(e.target.value, siteAdd);
+                // Default: isi alamat customer sampai site dipilih
+                if (lokasiAdd) lokasiAdd.value = alamatOfOption(customerAdd);
+            });
+            siteAdd.addEventListener('change', () => syncLokasi(siteAdd, lokasiAdd, customerAdd));
         }
 
         // Trigger AJAX untuk SEMUA Modal Edit Kunjungan
@@ -407,14 +443,20 @@
             const siteSelectId = select.getAttribute('data-target-site');
             const siteSelectElement = document.getElementById(siteSelectId);
             const preSelectedSite = siteSelectElement.getAttribute('data-selected');
-            
+            const modal = select.closest('[id^="modalEditKunjungan-"]');
+            const lokasiEl = modal ? modal.querySelector('.lokasi-edit') : null;
+
             // Render cabang awal (saat halaman dimuat pertama kali)
             if(select.value) {
                 loadSitesAjax(select.value, siteSelectElement, preSelectedSite);
             }
 
             // Render cabang ulang jika customer diganti di tengah edit
-            select.addEventListener('change', (e) => loadSitesAjax(e.target.value, siteSelectElement));
+            select.addEventListener('change', (e) => {
+                loadSitesAjax(e.target.value, siteSelectElement);
+                if (lokasiEl) lokasiEl.value = alamatOfOption(select);
+            });
+            siteSelectElement.addEventListener('change', () => syncLokasi(siteSelectElement, lokasiEl, select));
         });
     });
 </script>

@@ -16,4 +16,9 @@ class Tool extends Model
                     ->withPivot('jumlah', 'keterangan')
                     ->withTimestamps();
     }
+
+    public function peminjaman()
+    {
+        return $this->hasMany(PeminjamanTool::class, 'id_tool', 'id_tool');
+    }
 }

@@ -145,27 +145,31 @@ class DummyDataSeeder extends Seeder
 
         // ================= DATA TOOLS =================
         $tools = [
-            ['Laptop Service Lenovo ThinkPad', 'TL-LTP-001', 'Komputer', 'Core i7, RAM 16GB, SSD 512GB', 'Baik', 'Tersedia', 'Laptop utama teknisi lapangan'],
-            ['Laptop Service HP ProBook', 'TL-LTP-002', 'Komputer', 'Core i5, RAM 8GB, SSD 256GB', 'Baik', 'Tersedia', 'Laptop cadangan'],
-            ['LAN Cable Tester', 'TL-NET-001', 'Jaringan', 'Tester kabel UTP RJ45/RJ11', 'Baik', 'Tersedia', null],
-            ['Multimeter Digital', 'TL-ELC-001', 'Elektronik', 'Sanwa CD800a, True RMS', 'Baik', 'Tersedia', null],
-            ['Obeng Set Presisi 32pcs', 'TL-MKN-001', 'Mekanik', 'Obeng magnetik presisi untuk elektronik', 'Baik', 'Tersedia', null],
-            ['Tang Potong & Tang Lancip', 'TL-MKN-002', 'Mekanik', 'Set tang Tekiro', 'Rusak Ringan', 'Tidak Tersedia', 'Gagang tang longgar, perlu servis'],
-            ['USB to Serial Adapter', 'TL-NET-002', 'Jaringan', 'Adapter console untuk konfigurasi switch/router', 'Baik', 'Tersedia', null],
-            ['Harddisk Eksternal 1TB', 'TL-STG-001', 'Penyimpanan', 'Seagate Backup Plus 1TB', 'Baik', 'Tersedia', 'Untuk backup data customer'],
-            ['Kabel UTP Cat6 50m', 'TL-NET-003', 'Jaringan', 'Roll kabel UTP Cat6 Belden', 'Baik', 'Tersedia', null],
-            ['Thermal Paste & Cleaning Kit', 'TL-MKN-003', 'Mekanik', 'Kit pembersih dan pasta prosesor', 'Baik', 'Tersedia', null],
+            ['Laptop Service Lenovo ThinkPad', 'TL-LTP-001', 'Komputer', 'Core i7, RAM 16GB, SSD 512GB', 'Baik', 3, 'Tersedia', 'Laptop utama teknisi lapangan'],
+            ['Laptop Service HP ProBook', 'TL-LTP-002', 'Komputer', 'Core i5, RAM 8GB, SSD 256GB', 'Baik', 2, 'Tersedia', 'Laptop cadangan'],
+            ['LAN Cable Tester', 'TL-NET-001', 'Jaringan', 'Tester kabel UTP RJ45/RJ11', 'Baik', 5, 'Tersedia', null],
+            ['Multimeter Digital', 'TL-ELC-001', 'Elektronik', 'Sanwa CD800a, True RMS', 'Baik', 4, 'Tersedia', null],
+            ['Obeng Set Presisi 32pcs', 'TL-MKN-001', 'Mekanik', 'Obeng magnetik presisi untuk elektronik', 'Baik', 6, 'Tersedia', null],
+            ['Tang Potong & Tang Lancip', 'TL-MKN-002', 'Mekanik', 'Set tang Tekiro', 'Rusak Ringan', 0, 'Tidak Tersedia', 'Gagang tang longgar, perlu servis'],
+            ['USB to Serial Adapter', 'TL-NET-002', 'Jaringan', 'Adapter console untuk konfigurasi switch/router', 'Baik', 5, 'Tersedia', null],
+            ['Harddisk Eksternal 1TB', 'TL-STG-001', 'Penyimpanan', 'Seagate Backup Plus 1TB', 'Baik', 2, 'Tersedia', 'Untuk backup data customer'],
+            ['Kabel UTP Cat6 50m', 'TL-NET-003', 'Jaringan', 'Roll kabel UTP Cat6 Belden', 'Baik', 8, 'Tersedia', null],
+            ['Thermal Paste & Cleaning Kit', 'TL-MKN-003', 'Mekanik', 'Kit pembersih dan pasta prosesor', 'Baik', 10, 'Tersedia', null],
         ];
 
-        foreach ($tools as [$nama, $kode, $kategori, $spesifikasi, $kondisi, $status, $keterangan]) {
+        foreach ($tools as [$nama, $kode, $kategori, $spesifikasi, $kondisi, $stok, $status, $keterangan]) {
             $exists = DB::table('tools')->where('kode', $kode)->first();
-            if ($exists) continue;
+            if ($exists) {
+                DB::table('tools')->where('kode', $kode)->update(['stok' => $stok]);
+                continue;
+            }
             DB::table('tools')->insert([
                 'nama_alat' => $nama,
                 'kode' => $kode,
                 'kategori' => $kategori,
                 'spesifikasi' => $spesifikasi,
                 'kondisi' => $kondisi,
+                'stok' => $stok,
                 'status_ketersediaan' => $status,
                 'keterangan' => $keterangan,
                 'created_at' => now(),

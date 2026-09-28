@@ -60,7 +60,7 @@ class DashboardController extends Controller
         $kunjunganHariIni = Kunjungan::whereDate('tanggal', now()->toDateString())->count();
 
         // Tarik 6 kunjungan terakhir beserta relasi datanya buat ditampilin di tabel operasional
-        $kunjunganList = Kunjungan::with(['customer', 'engineer.user', 'tools'])
+        $kunjunganList = Kunjungan::with(['customer', 'site', 'engineer.user', 'tools'])
             ->latest()
             ->take(6)
             ->get();
@@ -86,7 +86,7 @@ class DashboardController extends Controller
             $engineerId = $engineer->id_engineer;
 
             // 1. Kunjungan Aktif: Nyari 1 task terbaru yang statusnya masih jalan, entah dia jadi Lead atau nyantol di Tim Support
-            $kunjunganAktif = Kunjungan::with(['customer', 'tools'])
+            $kunjunganAktif = Kunjungan::with(['customer', 'site', 'tools'])
                 ->whereIn('status', ['Terjadwal', 'Dikerjakan'])
                 ->where(function($q) use ($engineerId) {
                     $q->where('id_engineer', $engineerId)
@@ -98,7 +98,7 @@ class DashboardController extends Controller
                 ->first();
 
             // 2. Riwayat Selesai: Ngambil 5 histori pekerjaan dia yang udah sukses kelar
-            $riwayatKunjungan = Kunjungan::with('customer')
+            $riwayatKunjungan = Kunjungan::with(['customer', 'site'])
                 ->where('status', 'Selesai')
                 ->where(function($q) use ($engineerId) {
                     $q->where('id_engineer', $engineerId)
@@ -111,7 +111,7 @@ class DashboardController extends Controller
                 ->get();
 
             // 3. LOGIC D-DAY ALERT: Nyari spesifik jadwal dia (sebagai Lead/Support) yang harus dieksekusi hari ini
-            $alertHariIni = Kunjungan::with('customer')
+            $alertHariIni = Kunjungan::with(['customer', 'site'])
                 ->whereDate('tanggal', now()->toDateString())
                 ->where('status', 'Terjadwal')
                 ->where(function($q) use ($engineerId) {

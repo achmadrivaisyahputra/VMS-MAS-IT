@@ -29,7 +29,10 @@
                 </span>
             </div>
             <h2 class="text-lg md:text-xl font-bold text-white mt-3">{{ $kunjungan->pekerjaan }}</h2>
-            <p class="text-xs text-blue-200 mt-1 font-medium">{{ $kunjungan->customer->nama_perusahaan ?? '-' }} • {{ $kunjungan->lokasi }}</p>
+            <p class="text-xs text-blue-200 mt-1 font-medium">{{ $kunjungan->customer->nama_perusahaan ?? '-' }} • {{ $kunjungan->alamat_sinkron }}</p>
+            @if($kunjungan->patokan)
+                <p class="text-xs text-amber-200 mt-1 font-medium">📎 Patokan: {{ $kunjungan->patokan }}</p>
+            @endif
         </div>
         <div class="flex items-center gap-3">
             @if($kunjungan->status == 'Selesai' || $kunjungan->laporan)
@@ -75,7 +78,10 @@
                     📍 Peta Lokasi & Koordinat Target
                 </h4>
                 <p class="text-xs text-slate-500 font-medium mt-0.5">
-                    {{ $kunjungan->site->nama_site ?? $kunjungan->customer->nama_perusahaan ?? 'Lokasi Tujuan' }} — {{ $kunjungan->lokasi }}
+                    {{ $kunjungan->site->nama_cabang ?? $kunjungan->customer->nama_perusahaan ?? 'Lokasi Tujuan' }} — {{ $kunjungan->alamat_sinkron }}
+                    @if($kunjungan->patokan)
+                        <span class="text-amber-600 font-semibold">(📎 {{ $kunjungan->patokan }})</span>
+                    @endif
                 </p>
             </div>
             <div class="flex items-center gap-2">
@@ -595,27 +601,92 @@
     }
 
     let signaturePad, signaturePadEngineer;
-    function initPad(canvasId) {
+    // Draft TTD dari server (tersimpan otomatis), direstore agar tidak hilang saat refresh
+    const draftTtdCustomer = @json($kunjungan->draft_ttd_customer);
+    const draftTtdEngineer = @json($kunjungan->draft_ttd_engineer);
+    const kunjunganId = {{ $kunjungan->id_kunjungan }};
+    const draftTimers = {};
+
+    function initPad(canvasId, draftDataUrl) {
         const canvas = document.getElementById(canvasId);
         if (!canvas) return null;
         const pad = new SignaturePad(canvas, {
             backgroundColor: 'rgb(255, 255, 255)',
             penColor: 'rgb(0, 0, 0)'
         });
+        pad._draftUrl = draftDataUrl || null;
+        // Flag isi manual: isEmpty() bawaan tidak mendeteksi gambar hasil restore
+        pad._hasContent = !!draftDataUrl;
+        pad._restoring = false;
+        function restoreDraft() {
+            if (!pad._draftUrl) return;
+            pad._restoring = true;
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    // Canvas sudah di-scale ratio; gambar pas 1:1 piksel
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.offsetWidth, canvas.offsetHeight);
+                    pad._hasContent = true;
+                } catch (e) { console.error(e); }
+                pad._restoring = false;
+            };
+            img.onerror = () => { pad._restoring = false; };
+            img.src = pad._draftUrl;
+        }
         function resizeCanvas() {
             const ratio = Math.max(window.devicePixelRatio || 1, 1);
             canvas.width = canvas.offsetWidth * ratio;
             canvas.height = canvas.offsetHeight * ratio;
             canvas.getContext("2d").scale(ratio, ratio);
             pad.clear();
+            restoreDraft();
         }
+        // Simpan draft otomatis setiap selesai menggores (debounce 1 detik)
+        pad.addEventListener('endStroke', () => {
+            pad._hasContent = true;
+            const key = canvasId;
+            clearTimeout(draftTimers[key]);
+            draftTimers[key] = setTimeout(() => {
+                saveDraft(canvasId === 'signaturePad' ? 'customer' : 'engineer');
+            }, 1000);
+        });
         window.addEventListener("resize", resizeCanvas);
         resizeCanvas();
         return pad;
     }
+
+    // Cek isi pad: gabungan flag manual + isEmpty() bawaan
+    function padIsEmpty(pad) {
+        return !(pad && (pad._hasContent || !pad.isEmpty()));
+    }
+
+    // Kirim draft TTD ke server agar tidak hilang saat refresh
+    async function saveDraft(which) {
+        const isCustomer = which === 'customer';
+        const pad = isCustomer ? signaturePad : signaturePadEngineer;
+        // Jangan simpan saat gambar restore masih loading (dataURL belum lengkap)
+        if (!pad || pad._restoring) return;
+        const dataUrl = padIsEmpty(pad) ? null : pad.toDataURL();
+        pad._draftUrl = dataUrl;
+        const tokenEl = document.querySelector('#signatureForm input[name="_token"]');
+        try {
+            await fetch(`/kunjungan/${kunjunganId}/signature-draft`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': tokenEl ? tokenEl.value : '',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ type: which, signature: dataUrl }),
+            });
+        } catch (e) {
+            console.error('Gagal menyimpan draft TTD:', e);
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-        signaturePad = initPad('signaturePad');
-        signaturePadEngineer = initPad('signaturePadEngineer');
+        signaturePad = initPad('signaturePad', draftTtdCustomer);
+        signaturePadEngineer = initPad('signaturePadEngineer', draftTtdEngineer);
         // Default terkunci agar scroll HP tidak mencoret TTD tanpa sengaja
         setPadLock('customer', true);
         setPadLock('engineer', true);
@@ -629,7 +700,7 @@
         const badge = document.getElementById(isCustomer ? 'sigBadgeCustomer' : 'sigBadgeEngineer');
         if (!pad || !wrap || !btn || !badge) return;
         wrap.dataset.locked = locked ? '1' : '0';
-        if (locked) { pad.off(); } else { pad.on(); }
+        if (locked) { pad.off(); saveDraft(which); } else { pad.on(); }
         wrap.classList.toggle('touch-none', !locked);
         wrap.classList.toggle('touch-pan-x', locked);
         wrap.classList.toggle('touch-pan-y', locked);
@@ -646,19 +717,19 @@
     }
 
     function clearSignature() {
-        if (signaturePad) signaturePad.clear();
+        if (signaturePad) { signaturePad.clear(); signaturePad._hasContent = false; saveDraft('customer'); }
     }
 
     function clearSignatureEngineer() {
-        if (signaturePadEngineer) signaturePadEngineer.clear();
+        if (signaturePadEngineer) { signaturePadEngineer.clear(); signaturePadEngineer._hasContent = false; saveDraft('engineer'); }
     }
 
     function submitSignature() {
-        if (signaturePad && signaturePad.isEmpty()) {
+        if (padIsEmpty(signaturePad)) {
             showGPSModal('Tanda Tangan Kosong', 'Customer belum membubuhkan tanda tangan. Silakan isi terlebih dahulu pada kotak TTD Customer.', false);
             return;
         }
-        if (signaturePadEngineer && signaturePadEngineer.isEmpty()) {
+        if (padIsEmpty(signaturePadEngineer)) {
             showGPSModal('Tanda Tangan Kosong', 'Engineer belum membubuhkan tanda tangan. Silakan isi terlebih dahulu pada kotak TTD Engineer.', false);
             return;
         }

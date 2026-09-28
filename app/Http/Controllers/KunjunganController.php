@@ -12,6 +12,7 @@ use App\Models\Laporan;
 use App\Models\BuktiPenyelesaian;
 use App\Models\Pengeluaran;
 use App\Models\CustomerSite;
+use App\Models\PeminjamanTool;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -62,6 +63,22 @@ class KunjunganController extends Controller
         return view('kunjungan.index', compact('kunjunganList', 'customers', 'engineers', 'tools'));
     }
 
+    /**
+     * Alamat kunjungan SELALU mengikuti data master: alamat site jika dipilih,
+     * jika tidak maka alamat customer. Tidak bisa diubah manual dari form.
+     */
+    private function resolveLokasi($idSite, $idCustomer)
+    {
+        if ($idSite) {
+            $site = \App\Models\CustomerSite::find($idSite);
+            if ($site && trim((string) $site->alamat_lengkap) !== '') {
+                return $site->alamat_lengkap;
+            }
+        }
+        $customer = \App\Models\Customer::find($idCustomer);
+        return $customer->alamat ?? '';
+    }
+
     // 2. Buat Kunjungan Baru
     public function store(Request $request)
     {
@@ -71,7 +88,7 @@ class KunjunganController extends Controller
             'id_engineer' => 'nullable|exists:engineers,id_engineer',
             'tanggal' => 'required|date',
             'waktu' => 'required',
-            'lokasi' => 'required|string',
+            'patokan' => 'nullable|string|max:500',
             'pekerjaan' => 'required|string|max:150',
             'tools' => 'nullable|array',
             'tools.*' => 'exists:tools,id_tool',
@@ -79,7 +96,10 @@ class KunjunganController extends Controller
             'support_engineers.*' => 'exists:engineers,id_engineer',
         ]);
 
-        DB::transaction(function () use ($request) {
+        // Alamat dikunci: selalu sinkron dari site/customer yang dipilih
+        $lokasi = $this->resolveLokasi($request->id_site, $request->id_customer);
+
+        DB::transaction(function () use ($request, $lokasi) {
             $nomorKunjungan = 'VMS-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -4));
 
             $kunjungan = Kunjungan::create([
@@ -89,14 +109,29 @@ class KunjunganController extends Controller
                 'id_engineer' => $request->id_engineer,
                 'tanggal' => $request->tanggal,
                 'waktu' => $request->waktu,
-                'lokasi' => $request->lokasi,
+                'lokasi' => $lokasi,
+                'patokan' => $request->patokan,
                 'pekerjaan' => $request->pekerjaan,
                 'status' => 'Terjadwal',
             ]);
 
             if ($request->filled('tools')) {
                 foreach ($request->tools as $toolId) {
+                    $tool = Tool::lockForUpdate()->find($toolId);
+                    if (!$tool || $tool->stok < 1) {
+                        throw new \Exception("Stok " . ($tool->nama_alat ?? 'tool') . " tidak mencukupi (tersisa " . ($tool->stok ?? 0) . ").");
+                    }
                     $kunjungan->tools()->attach($toolId, ['jumlah' => 1]);
+                    $tool->decrement('stok', 1);
+                    PeminjamanTool::create([
+                        'id_tool' => $toolId,
+                        'id_engineer' => $request->id_engineer,
+                        'id_kunjungan' => $kunjungan->id_kunjungan,
+                        'jumlah' => 1,
+                        'tanggal_pinjam' => now(),
+                        'status' => 'Dipinjam',
+                        'keterangan' => 'Dipakai untuk kunjungan ' . $nomorKunjungan,
+                    ]);
                 }
             }
 
@@ -119,7 +154,7 @@ class KunjunganController extends Controller
             'id_engineer' => 'nullable|exists:engineers,id_engineer',
             'tanggal' => 'required|date',
             'waktu' => 'required',
-            'lokasi' => 'required|string',
+            'patokan' => 'nullable|string|max:500',
             'pekerjaan' => 'required|string|max:150',
             'tools' => 'nullable|array',
             'tools.*' => 'exists:tools,id_tool',
@@ -127,7 +162,10 @@ class KunjunganController extends Controller
             'support_engineers.*' => 'exists:engineers,id_engineer',
         ]);
 
-        DB::transaction(function () use ($request, $kunjungan) {
+        // Alamat dikunci: selalu sinkron dari site/customer yang dipilih
+        $lokasi = $this->resolveLokasi($request->id_site, $request->id_customer);
+
+        DB::transaction(function () use ($request, $kunjungan, $lokasi) {
             $statusBaru = $kunjungan->status == 'Reschedule' ? 'Terjadwal' : $kunjungan->status;
             $alasan = $kunjungan->status == 'Reschedule' ? null : $kunjungan->alasan_reschedule;
 
@@ -137,21 +175,15 @@ class KunjunganController extends Controller
                 'id_engineer' => $request->id_engineer,
                 'tanggal' => $request->tanggal,
                 'waktu' => $request->waktu,
-                'lokasi' => $request->lokasi,
+                'lokasi' => $lokasi,
+                'patokan' => $request->patokan,
                 'pekerjaan' => $request->pekerjaan,
                 'status' => $statusBaru,
                 'alasan_reschedule' => $alasan,
             ]);
 
-            if ($request->filled('tools')) {
-                $syncData = [];
-                foreach ($request->tools as $toolId) {
-                    $syncData[$toolId] = ['jumlah' => 1];
-                }
-                $kunjungan->tools()->sync($syncData);
-            } else {
-                $kunjungan->tools()->detach();
-            }
+            $toolBaru = $request->filled('tools') ? $request->tools : [];
+            $this->sinkronToolsDenganStok($kunjungan, $toolBaru, $request->id_engineer);
 
             if ($request->filled('support_engineers')) {
                 $kunjungan->supportEngineers()->sync($request->support_engineers);
@@ -167,10 +199,68 @@ class KunjunganController extends Controller
     public function destroy($id)
     {
         $kunjungan = Kunjungan::findOrFail($id);
-        $kunjungan->tools()->detach();
-        $kunjungan->delete();
+
+        DB::transaction(function () use ($kunjungan) {
+            // Kembalikan semua tools yang masih dipinjam untuk kunjungan ini
+            $this->sinkronToolsDenganStok($kunjungan, [], $kunjungan->id_engineer);
+            $kunjungan->delete();
+        });
 
         return redirect()->back()->with('success', 'Jadwal Kunjungan berhasil dihapus secara permanen!');
+    }
+
+    /**
+     * Sinkron tools kunjungan sekaligus mengatur stok & riwayat peminjaman.
+     * - Tool yang dilepas  -> peminjaman ditandai Dikembalikan, stok bertambah.
+     * - Tool yang ditambah -> validasi stok, peminjaman baru, stok berkurang.
+     */
+    private function sinkronToolsDenganStok(Kunjungan $kunjungan, array $toolBaru, $idEngineer)
+    {
+        $toolLama = $kunjungan->tools()->pluck('tools.id_tool')->map(fn($v) => (int) $v)->toArray();
+        $toolBaru = array_map('intval', $toolBaru);
+
+        $dilepas = array_diff($toolLama, $toolBaru);
+        $ditambah = array_diff($toolBaru, $toolLama);
+
+        // Validasi stok dulu untuk semua tool yang ditambah
+        foreach ($ditambah as $toolId) {
+            $tool = Tool::lockForUpdate()->find($toolId);
+            if (!$tool || $tool->stok < 1) {
+                throw new \Exception("Stok " . ($tool->nama_alat ?? 'tool') . " tidak mencukupi (tersisa " . ($tool->stok ?? 0) . ").");
+            }
+        }
+
+        $syncData = [];
+        foreach ($toolBaru as $toolId) {
+            $syncData[$toolId] = ['jumlah' => 1];
+        }
+        $kunjungan->tools()->sync($syncData);
+
+        // Tool dilepas -> kembalikan stok
+        foreach ($dilepas as $toolId) {
+            $pinjam = PeminjamanTool::where('id_kunjungan', $kunjungan->id_kunjungan)
+                ->where('id_tool', $toolId)
+                ->where('status', 'Dipinjam')
+                ->first();
+            if ($pinjam) {
+                $pinjam->update(['status' => 'Dikembalikan', 'tanggal_kembali' => now()]);
+            }
+            Tool::where('id_tool', $toolId)->increment('stok', 1);
+        }
+
+        // Tool ditambah -> kurangi stok + catat peminjaman
+        foreach ($ditambah as $toolId) {
+            Tool::where('id_tool', $toolId)->decrement('stok', 1);
+            PeminjamanTool::create([
+                'id_tool' => $toolId,
+                'id_engineer' => $idEngineer,
+                'id_kunjungan' => $kunjungan->id_kunjungan,
+                'jumlah' => 1,
+                'tanggal_pinjam' => now(),
+                'status' => 'Dipinjam',
+                'keterangan' => 'Dipakai untuk kunjungan ' . $kunjungan->nomor,
+            ]);
+        }
     }
 
     // 5. Detail Kunjungan
@@ -384,9 +474,35 @@ class KunjunganController extends Controller
             ]
         );
 
-        $kunjungan->update(['status' => 'Selesai']);
+        // Kunjungan selesai -> tools TIDAK otomatis kembali.
+        // Engineer wajib mengembalikan manual via halaman Pengembalian agar stok realtime
+        // (stok hanya bertambah saat tools benar-benar sudah kembali fisik).
+
+        $kunjungan->update(['status' => 'Selesai', 'draft_ttd_customer' => null, 'draft_ttd_engineer' => null]);
 
         return redirect()->route('kunjungan.show', $id)->with('success', 'Kunjungan kerja selesai secara resmi dan dokumen telah ditandatangani customer & engineer!');
+    }
+
+    // 10b. Simpan draft TTD otomatis (dipanggil via AJAX saat pad dikunci/diisi),
+    // agar tanda tangan tidak hilang jika halaman di-refresh sebelum submit final.
+    public function saveSignatureDraft(Request $request, $id)
+    {
+        $request->validate([
+            'type' => 'required|in:customer,engineer',
+            'signature' => 'nullable|string|max:2000000',
+        ]);
+
+        $kunjungan = Kunjungan::findOrFail($id);
+
+        // Jangan terima draft jika laporan sudah dikunci final
+        if ($kunjungan->laporan && $kunjungan->laporan->buktiPenyelesaian) {
+            return response()->json(['ok' => false, 'message' => 'Laporan sudah dikunci final.'], 400);
+        }
+
+        $field = $request->type === 'customer' ? 'draft_ttd_customer' : 'draft_ttd_engineer';
+        $kunjungan->update([$field => $request->signature]);
+
+        return response()->json(['ok' => true]);
     }
 
     // 11. Reschedule

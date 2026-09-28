@@ -27,9 +27,19 @@ class ToolController extends Controller
             $query->latest();
         }
 
-        $tools = $query->paginate(10)->appends($request->all());
-        
-        return view('master.tool.index', compact('tools'));
+        $tools = $query->withSum(['peminjaman as sedang_dipinjam' => function ($q) {
+            $q->where('status', 'Dipinjam');
+        }], 'jumlah')->paginate(10)->appends($request->all());
+
+        // Ringkasan stok untuk kartu statistik
+        $ringkasan = [
+            'jenis' => Tool::count(),
+            'total_unit' => (int) Tool::sum('stok') + (int) \App\Models\PeminjamanTool::where('status', 'Dipinjam')->sum('jumlah'),
+            'tersedia' => (int) Tool::sum('stok'),
+            'dipinjam' => (int) \App\Models\PeminjamanTool::where('status', 'Dipinjam')->sum('jumlah'),
+        ];
+
+        return view('master.tool.index', compact('tools', 'ringkasan'));
     }
 
     public function store(Request $request)
@@ -39,7 +49,7 @@ class ToolController extends Controller
             'kode' => 'required|string|max:50|unique:tools,kode',
             'kategori' => 'required|string|max:100',
             'spesifikasi' => 'nullable|string',
-            'kondisi' => 'required|in:Baik,Rusak Ringan,Rusak Berat',
+            'stok' => 'required|integer|min:0|max:100000',
             'status_ketersediaan' => 'required|in:Tersedia,Tidak Tersedia',
             'keterangan' => 'nullable|string',
         ]);
@@ -58,7 +68,7 @@ class ToolController extends Controller
             'kode' => 'required|string|max:50|unique:tools,kode,' . $tool->id_tool . ',id_tool',
             'kategori' => 'required|string|max:100',
             'spesifikasi' => 'nullable|string',
-            'kondisi' => 'required|in:Baik,Rusak Ringan,Rusak Berat',
+            'stok' => 'required|integer|min:0|max:100000',
             'status_ketersediaan' => 'required|in:Tersedia,Tidak Tersedia',
             'keterangan' => 'nullable|string',
         ]);
@@ -74,5 +84,20 @@ class ToolController extends Controller
         $tool->delete();
 
         return redirect()->back()->with('success', 'Tool berhasil dihapus!');
+    }
+
+    /**
+     * Tambah stok tools (restock).
+     */
+    public function tambahStok(Request $request, $id)
+    {
+        $request->validate([
+            'jumlah' => 'required|integer|min:1|max:100000',
+        ]);
+
+        $tool = Tool::findOrFail($id);
+        $tool->increment('stok', $request->jumlah);
+
+        return redirect()->back()->with('success', "Stok {$tool->nama_alat} bertambah {$request->jumlah}. Total stok: {$tool->fresh()->stok}.");
     }
 }

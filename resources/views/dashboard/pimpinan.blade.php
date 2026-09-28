@@ -63,7 +63,7 @@
                             <td class="p-4 font-bold text-[#003399]">{{ $kunjungan->nomor }}</td>
                             <td class="p-4">
                                 <p class="font-bold text-slate-800">{{ $kunjungan->customer->nama_perusahaan ?? '-' }}</p>
-                                <p class="text-[10px] text-slate-500 font-medium">{{ $kunjungan->lokasi }}</p>
+                                <p class="text-[10px] text-slate-500 font-medium">{{ $kunjungan->alamat_sinkron }}</p>
                             </td>
                             <td class="p-4 font-medium">
                                 {{ $kunjungan->engineer->user->nama ?? 'Belum Ditugaskan' }}
