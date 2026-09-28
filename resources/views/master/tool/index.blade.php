@@ -114,7 +114,7 @@
                     @forelse($tools as $t)
                         <tr class="hover:bg-slate-50 transition-colors">
                             <td class="p-4">
-                                <span class="font-mono text-[10px] text-[#003399] font-bold uppercase">{{ $t->kode }}</span>
+                                <a href="{{ route('master.tool.show', $t->kode) }}" class="font-mono text-[10px] text-[#003399] font-bold uppercase hover:underline" title="Lihat detail tool">{{ $t->kode }}</a>
                                 <p class="font-bold text-slate-800 mt-1">{{ $t->nama_alat }}</p>
                             </td>
                             <td class="p-4 font-medium text-slate-700">{{ $t->kategori }}</td>
@@ -139,16 +139,16 @@
                             <td class="p-4 font-medium text-slate-500 max-w-xs truncate">{{ $t->spesifikasi ?? '-' }}</td>
                             <td class="p-4 text-center">
                                 <div class="inline-flex items-center gap-2">
-                                    <button onclick="openTambahStokModal({{ $t->id_tool }}, '{{ addslashes($t->nama_alat) }}', {{ $t->stok }})" class="p-1.5 bg-emerald-50 border border-emerald-100 hover:bg-emerald-500 text-emerald-600 hover:text-white rounded-lg transition shadow-sm" title="Tambah Stok">
+                                    <button onclick="openTambahStokModal('{{ $t->kode }}', '{{ addslashes($t->nama_alat) }}', {{ $t->stok }})" class="p-1.5 bg-emerald-50 border border-emerald-100 hover:bg-emerald-500 text-emerald-600 hover:text-white rounded-lg transition shadow-sm" title="Tambah Stok">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
                                     </button>
-                                    <a href="{{ route('peminjaman.riwayat', $t->id_tool) }}" class="p-1.5 bg-blue-50 border border-blue-100 hover:bg-blue-500 text-blue-600 hover:text-white rounded-lg transition shadow-sm" title="Riwayat Peminjaman">
+                                    <a href="{{ route('peminjaman.riwayat', $t->kode) }}" class="p-1.5 bg-blue-50 border border-blue-100 hover:bg-blue-500 text-blue-600 hover:text-white rounded-lg transition shadow-sm" title="Riwayat Peminjaman">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                     </a>
                                     <button onclick="openEditToolModal({{ json_encode($t) }})" class="p-1.5 bg-amber-50 border border-amber-100 hover:bg-amber-500 text-amber-600 hover:text-white rounded-lg transition shadow-sm" title="Edit">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                     </button>
-                                    <form action="{{ route('master.tool.destroy', $t->id_tool) }}" method="POST">
+                                    <form action="{{ route('master.tool.destroy', $t->kode) }}" method="POST">
                                         @csrf
                                         @method('DELETE')
                                         <button type="button" onclick="showConfirmModal(this.form, 'Hapus Tool', 'Apakah Anda yakin ingin menghapus alat {{ $t->nama_alat }} ({{ $t->kode }})?')" 
@@ -187,7 +187,7 @@
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="block text-slate-700 font-bold mb-1.5">Kode Alat</label>
-                    <input type="text" name="kode" placeholder="Misal: TOOL-NET-002" required class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#003399]">
+                    <div class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 text-xs font-medium">Otomatis dari Format Nomor</div>
                 </div>
                 <div>
                     <label class="block text-slate-700 font-bold mb-1.5">Kategori</label>
@@ -236,7 +236,7 @@
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="block text-slate-700 font-bold mb-1.5">Kode Alat</label>
-                    <input type="text" id="edit_tool_kode" name="kode" required class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#003399]">
+                    <div id="edit_tool_kode" class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-mono font-bold"></div>
                 </div>
                 <div>
                     <label class="block text-slate-700 font-bold mb-1.5">Kategori</label>
@@ -274,8 +274,8 @@
 
 <script>
     function openEditToolModal(tool) {
-        document.getElementById('formEditTool').action = `/master/tool/${tool.id_tool}`;
-        document.getElementById('edit_tool_kode').value = tool.kode;
+        document.getElementById('formEditTool').action = `/master/tool/${tool.kode}`;
+        document.getElementById('edit_tool_kode').textContent = tool.kode;
         document.getElementById('edit_tool_kategori').value = tool.kategori;
         document.getElementById('edit_tool_nama').value = tool.nama_alat;
         document.getElementById('edit_tool_stok').value = tool.stok ?? 0;
@@ -284,8 +284,8 @@
         document.getElementById('modalEditTool').classList.remove('hidden');
     }
 
-    function openTambahStokModal(id, nama, stok) {
-        document.getElementById('formTambahStok').action = `/master/tool/${id}/tambah-stok`;
+    function openTambahStokModal(kode, nama, stok) {
+        document.getElementById('formTambahStok').action = `/master/tool/${kode}/tambah-stok`;
         document.getElementById('tambahStokNama').textContent = nama;
         document.getElementById('tambahStokSaatIni').textContent = stok;
         document.getElementById('tambahStokJumlah').value = 1;

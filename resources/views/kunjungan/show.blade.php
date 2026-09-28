@@ -36,7 +36,7 @@
         </div>
         <div class="flex items-center gap-3">
             @if($kunjungan->status == 'Selesai' || $kunjungan->laporan)
-                <a href="{{ route('laporan.pdf', $kunjungan->id_kunjungan) }}" target="_blank" 
+                <a href="{{ route('laporan.pdf', $kunjungan->nomor) }}" target="_blank" 
                    class="px-4 py-2.5 bg-white hover:bg-slate-100 text-[#002266] rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition">
                     <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     <span>Cetak PDF Laporan</span>
@@ -118,7 +118,7 @@
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                     <!-- Form Terima -->
-                    <form action="{{ route('kunjungan.terima', $kunjungan->id_kunjungan) }}" method="POST">
+                    <form action="{{ route('kunjungan.terima', $kunjungan->nomor) }}" method="POST">
                         @csrf
                         <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center justify-center gap-2">
                             ✅ Terima & Konfirmasi Jadwal
@@ -126,7 +126,7 @@
                     </form>
 
                     <!-- Form Tolak / Reschedule -->
-                    <form action="{{ route('kunjungan.reschedule', $kunjungan->id_kunjungan) }}" method="POST" class="space-y-2">
+                    <form action="{{ route('kunjungan.reschedule', $kunjungan->nomor) }}" method="POST" class="space-y-2">
                         @csrf
                         <div class="flex gap-2">
                             <input type="text" name="alasan_reschedule" required placeholder="Alasan Tolak (Contoh: Jadwal Bentrok)" class="w-full px-3 py-2 bg-white border border-slate-300 focus:border-rose-400 focus:ring-rose-400 rounded-xl text-xs text-slate-800">
@@ -143,7 +143,7 @@
                 <h4 class="text-sm font-bold text-[#002266]">Sudah Tiba di Lokasi Klien?</h4>
                 <p class="text-xs text-slate-600 font-medium">Klik tombol di bawah ini untuk mencatat koordinat GPS dan memulai pengerjaan.</p>
                 
-                <form id="formCheckIn" action="{{ route('kunjungan.checkin', $kunjungan->id_kunjungan) }}" method="POST">
+                <form id="formCheckIn" action="{{ route('kunjungan.checkin', $kunjungan->nomor) }}" method="POST">
                     @csrf
                     <input type="hidden" name="lokasi_gps" id="lokasi_gps_checkin">
                     <button type="button" onclick="getGPSCheckIn()" class="w-full max-w-md mx-auto px-4 py-3 bg-[#002266] hover:bg-[#001233] text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-900/20 transition">
@@ -167,7 +167,7 @@
             <h4 class="text-sm font-bold text-[#002266] flex items-center gap-2">
                 📷 Unggah Dokumentasi Lapangan (On-Site)
             </h4>
-            <form action="{{ route('kunjungan.dokumentasi', $kunjungan->id_kunjungan) }}" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs font-medium">
+            <form action="{{ route('kunjungan.dokumentasi', $kunjungan->nomor) }}" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs font-medium">
                 @csrf
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -199,7 +199,7 @@
             <h4 class="text-sm font-bold text-slate-800 flex items-center gap-2">
                 💸 Catat Pengeluaran Operasional
             </h4>
-            <form action="{{ route('kunjungan.pengeluaran', $kunjungan->id_kunjungan) }}" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs font-medium">
+            <form action="{{ route('kunjungan.pengeluaran', $kunjungan->nomor) }}" method="POST" enctype="multipart/form-data" class="space-y-4 text-xs font-medium">
                 @csrf
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -239,7 +239,7 @@
             <h4 class="text-sm font-bold text-[#002266]">📝 Input Catatan & Check-Out</h4>
             <p class="text-xs text-slate-600 font-medium">Tuliskan ringkasan hasil pengerjaan. Sistem akan memverifikasi lokasi GPS Anda untuk proses Check-Out.</p>
             
-            <form id="formCheckOut" action="{{ route('kunjungan.checkout', $kunjungan->id_kunjungan) }}" method="POST" class="space-y-4 text-xs">
+            <form id="formCheckOut" action="{{ route('kunjungan.checkout', $kunjungan->nomor) }}" method="POST" class="space-y-4 text-xs">
                 @csrf
                 <input type="hidden" name="lokasi_gps" id="lokasi_gps_checkout"> 
                 
@@ -262,7 +262,7 @@
             <h4 class="text-sm font-bold text-[#002266]">📝 Revisi Catatan Pekerjaan</h4>
             <p class="text-xs text-slate-600 font-medium">Catatan ini tampil di laporan PDF pada kolom "Deskripsi & Catatan Akhir". Anda masih bisa merevisinya sebelum customer menandatangani laporan.</p>
 
-            <form action="{{ route('kunjungan.revisi-catatan', $kunjungan->id_kunjungan) }}" method="POST" class="space-y-3">
+            <form action="{{ route('kunjungan.revisi-catatan', $kunjungan->nomor) }}" method="POST" class="space-y-3">
                 @csrf
                 <div>
                     <label class="block text-slate-700 text-xs font-bold mb-1.5">Deskripsi / Hasil Pekerjaan Lapangan:</label>
@@ -285,7 +285,7 @@
             </div>
             <p class="text-xs text-amber-800 font-medium">Silakan sodorkan HP ke Customer / PIC <strong>({{ $kunjungan->customer->pic ?? 'PIC Perusahaan' }})</strong> untuk membubuhkan tanda tangan pada kotak pertama, lalu Engineer membubuhkan tanda tangan pada kotak kedua:</p>
 
-            <form id="signatureForm" action="{{ route('kunjungan.signature', $kunjungan->id_kunjungan) }}" method="POST" class="space-y-4">
+            <form id="signatureForm" action="{{ route('kunjungan.signature', $kunjungan->nomor) }}" method="POST" class="space-y-4">
                 @csrf
                 <input type="hidden" name="signature" id="signatureInput">
                 <input type="hidden" name="signature_engineer" id="signatureEngineerInput">
@@ -362,7 +362,14 @@
         <div class="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-3 text-xs">
             <h4 class="text-xs font-bold text-[#002266] uppercase tracking-wider border-b border-slate-100 pb-2">Detail Informasi Tiket</h4>
             <div class="space-y-2 font-medium text-slate-600">
-                <p><strong class="text-slate-800">Customer:</strong> {{ $kunjungan->customer->nama_perusahaan ?? '-' }}</p>
+                <p><strong class="text-slate-800">Customer:</strong>
+                    @if($kunjungan->customer)
+                        <a href="{{ route('master.customer.show', $kunjungan->customer->kode) }}" class="text-[#003399] font-bold hover:underline">{{ $kunjungan->customer->nama_perusahaan }}</a>
+                        <span class="font-mono text-[10px] text-slate-400 font-bold">({{ $kunjungan->customer->kode }})</span>
+                    @else
+                        -
+                    @endif
+                </p>
                 <p><strong class="text-slate-800">PIC:</strong> {{ $kunjungan->customer->pic ?? '-' }} ({{ $kunjungan->customer->telepon ?? '-' }})</p>
                 <p><strong class="text-slate-800">Lead Engineer:</strong> {{ $kunjungan->engineer->user->nama ?? 'Belum Ditugaskan' }}</p>
                 <p><strong class="text-slate-800">Tim Support:</strong> 
@@ -375,7 +382,7 @@
                 <p><strong class="text-slate-800">Alat Kerja Terbawa:</strong></p>
                 <ul class="list-disc list-inside pl-2">
                     @forelse($kunjungan->tools as $tool)
-                        <li>{{ $tool->nama_alat }} ({{$tool->kode }})</li>
+                        <li><a href="{{ route('master.tool.show', $tool->kode) }}" class="text-[#003399] font-bold hover:underline">{{ $tool->nama_alat }}</a> <span class="font-mono text-[10px] text-slate-400 font-bold">({{ $tool->kode }})</span></li>
                     @empty
                         <li class="italic text-slate-400">Tidak ada tools khusus</li>
                     @endforelse

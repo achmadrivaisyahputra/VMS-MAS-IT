@@ -19,6 +19,15 @@ use Illuminate\Support\Facades\DB;
 
 class KunjunganController extends Controller
 {
+    /**
+     * Cari kunjungan berdasarkan NOMOR (bukan id angka),
+     * karena URL memakai nomor kunjungan, misal: /kunjungan/vmsmit26001
+     */
+    private function cariKunjungan(string $nomor)
+    {
+        return Kunjungan::where('nomor', $nomor)->firstOrFail();
+    }
+
     // 1. Tampilkan List Kunjungan
     public function index(Request $request)
     {
@@ -100,7 +109,8 @@ class KunjunganController extends Controller
         $lokasi = $this->resolveLokasi($request->id_site, $request->id_customer);
 
         DB::transaction(function () use ($request, $lokasi) {
-            $nomorKunjungan = 'VMS-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -4));
+            // Nomor kunjungan berurutan dari Format Nomor (prefix) yang bisa diatur di Master Data
+            $nomorKunjungan = \App\Models\FormatNomor::generate('kunjungan');
 
             $kunjungan = Kunjungan::create([
                 'nomor' => $nomorKunjungan,
@@ -146,7 +156,7 @@ class KunjunganController extends Controller
     // 3. Update Kunjungan
     public function update(Request $request, $id)
     {
-        $kunjungan = Kunjungan::findOrFail($id);
+        $kunjungan = $this->cariKunjungan($id);
 
         $request->validate([
             'id_customer' => 'required|exists:customers,id_customer',
@@ -198,7 +208,7 @@ class KunjunganController extends Controller
     // 4. Hapus Kunjungan
     public function destroy($id)
     {
-        $kunjungan = Kunjungan::findOrFail($id);
+        $kunjungan = $this->cariKunjungan($id);
 
         DB::transaction(function () use ($kunjungan) {
             // Kembalikan semua tools yang masih dipinjam untuk kunjungan ini
@@ -277,7 +287,7 @@ class KunjunganController extends Controller
             'laporan.buktiPenyelesaian',
             'pengeluaran',
             'supportEngineers.user' 
-        ])->findOrFail($id);
+        ])->where('nomor', $id)->firstOrFail();
 
         return view('kunjungan.show', compact('kunjungan'));
     }
@@ -285,7 +295,7 @@ class KunjunganController extends Controller
     // 6. Engineer Check-in
     public function checkIn(Request $request, $id)
     {
-        $kunjungan = Kunjungan::with('customer')->findOrFail($id);
+        $kunjungan = Kunjungan::with('customer')->where('nomor', $id)->firstOrFail();
 
         if (!in_array($kunjungan->status, ['Terjadwal', 'Dikonfirmasi'])) {
             return redirect()->back()->with('error', 'Status kunjungan tidak valid untuk dilakukan Check-in.');
@@ -351,12 +361,14 @@ class KunjunganController extends Controller
             'keterangan' => 'nullable|string',
         ]);
 
+        $kunjungan = $this->cariKunjungan($id);
+
         $file = $request->file('foto');
         $filename = time() . '_' . $file->getClientOriginalName();
         $file->move(public_path('uploads/dokumentasi'), $filename);
 
         Dokumentasi::create([
-            'id_kunjungan' => $id,
+            'id_kunjungan' => $kunjungan->id_kunjungan,
             'kategori_foto' => $request->kategori_foto,
             'file_foto' => 'uploads/dokumentasi/' . $filename,
             'keterangan' => $request->keterangan,
@@ -383,8 +395,10 @@ class KunjunganController extends Controller
             $path = 'uploads/pengeluaran/' . $filename;
         }
 
+        $kunjungan = $this->cariKunjungan($id);
+
         Pengeluaran::create([
-            'id_kunjungan' => $id,
+            'id_kunjungan' => $kunjungan->id_kunjungan,
             'jenis_biaya' => $request->jenis_biaya,
             'nominal' => $request->nominal,
             'keterangan' => $request->keterangan,
@@ -397,7 +411,7 @@ class KunjunganController extends Controller
     // 9. Check-out
     public function checkOut(Request $request, $id)
     {
-        $kunjungan = Kunjungan::findOrFail($id);
+        $kunjungan = $this->cariKunjungan($id);
 
         $request->validate([
             'catatan' => 'required|string',
@@ -413,7 +427,7 @@ class KunjunganController extends Controller
             'check_out_longitude' => $lng
         ]);
 
-        $aktivitas = AktivitasPekerjaan::where('id_kunjungan', $id)->latest()->first();
+        $aktivitas = AktivitasPekerjaan::where('id_kunjungan', $kunjungan->id_kunjungan)->latest()->first();
         if ($aktivitas) {
             $aktivitas->update([
                 'waktu_selesai' => now(),
@@ -422,7 +436,7 @@ class KunjunganController extends Controller
         }
 
         Laporan::firstOrCreate(
-            ['id_kunjungan' => $id],
+            ['id_kunjungan' => $kunjungan->id_kunjungan],
             [
                 'tanggal_dibuat' => now(),
                 'status_laporan' => 'Terbuat Otomatis'
@@ -435,7 +449,7 @@ class KunjunganController extends Controller
     // 9b. Revisi Catatan Pekerjaan (sebelum laporan dikunci TTD customer)
     public function revisiCatatan(Request $request, $id)
     {
-        $kunjungan = Kunjungan::with('laporan.buktiPenyelesaian')->findOrFail($id);
+        $kunjungan = Kunjungan::with('laporan.buktiPenyelesaian')->where('nomor', $id)->firstOrFail();
 
         if (!$kunjungan->laporan || $kunjungan->laporan->buktiPenyelesaian) {
             return redirect()->back()->with('error', 'Catatan tidak dapat direvisi karena laporan sudah dikunci tanda tangan.');
@@ -445,7 +459,7 @@ class KunjunganController extends Controller
             'catatan' => 'required|string',
         ]);
 
-        $aktivitas = AktivitasPekerjaan::where('id_kunjungan', $id)->latest()->first();
+        $aktivitas = AktivitasPekerjaan::where('id_kunjungan', $kunjungan->id_kunjungan)->latest()->first();
         if ($aktivitas) {
             $aktivitas->update(['catatan' => $request->catatan]);
         }
@@ -461,8 +475,8 @@ class KunjunganController extends Controller
             'signature_engineer' => 'required|string',
         ]);
 
-        $kunjungan = Kunjungan::findOrFail($id);
-        $laporan = Laporan::where('id_kunjungan', $id)->firstOrFail();
+        $kunjungan = $this->cariKunjungan($id);
+        $laporan = Laporan::where('id_kunjungan', $kunjungan->id_kunjungan)->firstOrFail();
 
         BuktiPenyelesaian::updateOrCreate(
             ['id_laporan' => $laporan->id_laporan],
@@ -492,7 +506,7 @@ class KunjunganController extends Controller
             'signature' => 'nullable|string|max:2000000',
         ]);
 
-        $kunjungan = Kunjungan::findOrFail($id);
+        $kunjungan = $this->cariKunjungan($id);
 
         // Jangan terima draft jika laporan sudah dikunci final
         if ($kunjungan->laporan && $kunjungan->laporan->buktiPenyelesaian) {
@@ -508,7 +522,7 @@ class KunjunganController extends Controller
     // 11. Reschedule
     public function reschedule(Request $request, $id)
     {
-        $kunjungan = Kunjungan::findOrFail($id);
+        $kunjungan = $this->cariKunjungan($id);
 
         $request->validate([
             'alasan_reschedule' => 'required|string|max:255',
@@ -525,7 +539,7 @@ class KunjunganController extends Controller
     // 12. Konfirmasi / Terima Jadwal Kunjungan oleh Engineer
     public function terima($id)
     {
-        $kunjungan = Kunjungan::findOrFail($id);
+        $kunjungan = $this->cariKunjungan($id);
 
         $kunjungan->update([
             'status' => 'Dikonfirmasi',

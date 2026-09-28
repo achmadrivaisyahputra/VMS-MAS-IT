@@ -82,13 +82,21 @@
                     @forelse($laporanList as $l)
                         <tr class="hover:bg-slate-50 transition-colors">
                             <td class="p-4 align-top">
-                                <span class="font-mono text-[#003399] font-bold">{{ $l->kunjungan->nomor ?? '-' }}</span>
+                                @if($l->kunjungan)
+                                    <a href="{{ route('kunjungan.show', $l->kunjungan->nomor) }}" class="font-mono text-[#003399] font-bold hover:underline">{{ $l->kunjungan->nomor }}</a>
+                                @else
+                                    <span class="font-mono text-slate-400 font-bold">-</span>
+                                @endif
                                 <p class="text-[10px] text-slate-500 mt-1 font-medium">{{ $l->kunjungan->pekerjaan ?? '-' }}</p>
                                 <p class="text-[10px] text-slate-400 mt-0.5">{{ $l->kunjungan->tanggal ?? '-' }}</p>
                             </td>
                             
                             <td class="p-4 align-top">
-                                <p class="font-bold text-slate-800 mb-1">{{ $l->kunjungan->customer->nama_perusahaan ?? '-' }}</p>
+                                @if($l->kunjungan && $l->kunjungan->customer)
+                                    <a href="{{ route('master.customer.show', $l->kunjungan->customer->kode) }}" class="font-bold text-slate-800 mb-1 hover:text-[#003399] hover:underline">{{ $l->kunjungan->customer->nama_perusahaan }}</a>
+                                @else
+                                    <p class="font-bold text-slate-800 mb-1">{{ $l->kunjungan->customer->nama_perusahaan ?? '-' }}</p>
+                                @endif
                                 <p class="text-[10px] text-slate-500 font-medium">Eng: {{ $l->kunjungan->engineer->user->nama ?? '-' }}</p>
                             </td>
                             
@@ -183,14 +191,14 @@
 
                             <!-- Cetak PDF & Kirim Email -->
                             <td class="p-4 align-top text-center space-y-2 min-w-[120px]">
-                                <a href="{{ route('laporan.pdf', $l->id_kunjungan) }}" target="_blank" 
+                                <a href="{{ route('laporan.pdf', $l->kunjungan->nomor) }}" target="_blank" 
                                    class="flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-lg text-[10px] font-bold transition w-full shadow-sm">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                     <span>Cetak PDF</span>
                                 </a>
                                 
                                 @if($l->status_approval == 'Disetujui')
-                                    <form action="{{ route('laporan.email', $l->id_kunjungan) }}" method="POST">
+                                    <form action="{{ route('laporan.email', $l->kunjungan->nomor) }}" method="POST">
                                         @csrf
                                         <button type="button" onclick="showConfirmModal(this.form, 'Kirim Email ke Klien', 'Apakah Anda yakin ingin mengirim Berita Acara ini ke email klien?')" class="flex items-center justify-center gap-1.5 px-3 py-2 bg-[#002266] hover:bg-[#001233] text-white rounded-lg text-[10px] font-bold transition w-full shadow-sm">
                                         <span>📧 Kirim Klien</span>

@@ -60,7 +60,7 @@
                 <tbody class="divide-y divide-slate-100">
                     @forelse($kunjunganList as $kunjungan)
                         <tr class="hover:bg-slate-50 transition-colors">
-                            <td class="p-4 font-bold text-[#003399]">{{ $kunjungan->nomor }}</td>
+                            <td class="p-4 font-bold text-[#003399]"><a href="{{ route('kunjungan.show', $kunjungan->nomor) }}" class="hover:underline">{{ $kunjungan->nomor }}</a></td>
                             <td class="p-4">
                                 <p class="font-bold text-slate-800">{{ $kunjungan->customer->nama_perusahaan ?? '-' }}</p>
                                 <p class="text-[10px] text-slate-500 font-medium">{{ $kunjungan->alamat_sinkron }}</p>

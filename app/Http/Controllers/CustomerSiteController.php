@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 class CustomerSiteController extends Controller
 {
     // Simpan Data Cabang Baru
-    public function store(Request $request, $id_customer)
+    public function store(Request $request, $kode)
     {
         $validated = $request->validate([
             'nama_cabang' => 'required|string|max:100',
@@ -17,7 +17,8 @@ class CustomerSiteController extends Controller
             'longitude' => 'nullable|string',
         ]);
 
-        $validated['id_customer'] = $id_customer;
+        $customer = \App\Models\Customer::where('kode', $kode)->firstOrFail();
+        $validated['id_customer'] = $customer->id_customer;
         CustomerSite::create($validated);
 
         return redirect()->back()->with('success', 'Cabang/Site berhasil ditambahkan!');

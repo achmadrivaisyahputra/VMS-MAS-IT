@@ -51,7 +51,11 @@
                     @forelse($pinjaman as $p)
                         <tr class="hover:bg-slate-50 transition-colors">
                             <td class="p-4">
-                                <span class="font-mono text-[10px] text-[#003399] font-bold uppercase">{{ $p->tool->kode ?? '-' }}</span>
+                                @if($p->tool)
+                                    <a href="{{ route('master.tool.show', $p->tool->kode) }}" class="font-mono text-[10px] text-[#003399] font-bold uppercase hover:underline">{{ $p->tool->kode }}</a>
+                                @else
+                                    <span class="font-mono text-[10px] text-slate-400 font-bold uppercase">-</span>
+                                @endif
                                 <p class="font-bold text-slate-800 mt-1">{{ $p->tool->nama_alat ?? '-' }}</p>
                             </td>
                             <td class="p-4 text-center"><span class="px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 text-[11px] font-bold">{{ $p->jumlah }}</span></td>

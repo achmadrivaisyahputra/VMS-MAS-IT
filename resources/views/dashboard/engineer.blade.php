@@ -48,7 +48,7 @@
             <div class="p-4 rounded-xl bg-blue-50/50 border border-blue-100 space-y-4">
                 <div class="flex flex-col sm:flex-row justify-between items-start gap-2">
                     <div>
-                        <span class="px-2 py-0.5 rounded bg-blue-100 text-[#003399] text-[10px] font-bold uppercase">{{ $kunjunganAktif->nomor }}</span>
+                        <a href="{{ route('kunjungan.show', $kunjunganAktif->nomor) }}" class="px-2 py-0.5 rounded bg-blue-100 text-[#003399] text-[10px] font-bold uppercase hover:underline">{{ $kunjunganAktif->nomor }}</a>
                         <h5 class="text-base font-bold text-slate-800 mt-2">{{ $kunjunganAktif->pekerjaan }}</h5>
                         <p class="text-xs text-slate-600 font-semibold">{{ $kunjunganAktif->customer->nama_perusahaan ?? '-' }}</p>
                         <p class="text-xs text-slate-500 mt-0.5">📍 {{ $kunjunganAktif->alamat_sinkron }}</p>
@@ -66,7 +66,7 @@
                 </div>
 
                 <div class="pt-3 border-t border-blue-100 flex flex-wrap gap-2">
-                    <a href="{{ route('kunjungan.show', $kunjunganAktif->id_kunjungan) }}" 
+                    <a href="{{ route('kunjungan.show', $kunjunganAktif->nomor) }}" 
                        class="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-[#002266] to-[#0044cc] hover:from-[#001a4d] hover:to-[#003399] text-white rounded-xl font-semibold text-xs text-center shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 transition-all">
                         <span>Buka Lembar Kerja Kunjungan</span>
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
@@ -92,7 +92,7 @@
                         <p class="font-bold text-slate-700">{{ $history->pekerjaan }}</p>
                         <p class="text-[11px] text-slate-500 font-medium">{{ $history->customer->nama_perusahaan ?? '-' }} • {{ $history->tanggal }}</p>
                     </div>
-                    <a href="{{ route('kunjungan.show', $history->id_kunjungan) }}" class="text-emerald-600 font-bold text-[11px] hover:underline">
+                    <a href="{{ route('kunjungan.show', $history->nomor) }}" class="text-emerald-600 font-bold text-[11px] hover:underline">
                         Lihat Detail ✔
                     </a>
                 </div>

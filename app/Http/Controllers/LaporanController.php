@@ -64,7 +64,7 @@ class LaporanController extends Controller
             'aktivitas',
             'dokumentasi',
             'laporan.buktiPenyelesaian'
-        ])->findOrFail($id_kunjungan);
+        ])->where('nomor', $id_kunjungan)->firstOrFail();
 
         // Ambil aktivitas terakhir untuk waktu check-in/check-out dan catatan
         $aktivitas = $kunjungan->aktivitas->last();
@@ -114,7 +114,7 @@ class LaporanController extends Controller
     {
         $kunjungan = Kunjungan::with([
             'customer', 'engineer.user', 'tools', 'aktivitas', 'dokumentasi', 'laporan.buktiPenyelesaian'
-        ])->findOrFail($id_kunjungan);
+        ])->where('nomor', $id_kunjungan)->firstOrFail();
 
         // Pastikan laporan sudah di-ACC sebelum dikirim
         if ($kunjungan->laporan->status_approval != 'Disetujui') {

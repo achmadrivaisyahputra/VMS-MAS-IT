@@ -121,11 +121,11 @@ class PeminjamanToolController extends Controller
     /**
      * Riwayat pemakaian & pinjaman per tool.
      */
-    public function riwayat($toolId)
+    public function riwayat($kode)
     {
-        $tool = Tool::findOrFail($toolId);
+        $tool = Tool::where('kode', $kode)->firstOrFail();
         $riwayat = PeminjamanTool::with(['engineer.user', 'kunjungan.customer'])
-            ->where('id_tool', $toolId)
+            ->where('id_tool', $tool->id_tool)
             ->latest('tanggal_pinjam')
             ->paginate(15);
 

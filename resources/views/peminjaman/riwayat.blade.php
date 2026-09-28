@@ -9,7 +9,7 @@
         <div>
             <h3 class="text-lg font-bold text-[#002266]">{{ $tool->nama_alat }}</h3>
             <p class="text-xs text-slate-500 font-medium mt-0.5">
-                <span class="font-mono text-[#003399] font-bold uppercase">{{ $tool->kode }}</span> &middot;
+                <a href="{{ route('master.tool.show', $tool->kode) }}" class="font-mono text-[#003399] font-bold uppercase hover:underline">{{ $tool->kode }}</a> &middot;
                 Stok saat ini: <span class="font-bold text-emerald-600">{{ $tool->stok }}</span> &middot;
                 Riwayat pemakaian & pinjaman
             </p>
@@ -49,7 +49,7 @@
                             </td>
                             <td class="p-4 font-medium text-slate-500 max-w-xs">
                                 @if($r->id_kunjungan)
-                                    <span class="text-[#003399] font-bold">{{ $r->kunjungan->nomor ?? '-' }}</span>
+                                    <a href="{{ route('kunjungan.show', $r->kunjungan->nomor) }}" class="text-[#003399] font-bold hover:underline">{{ $r->kunjungan->nomor ?? '-' }}</a>
                                     <span class="block text-[11px]">{{ $r->kunjungan->customer->nama_perusahaan ?? '' }}</span>
                                 @else
                                     <span class="italic">{{ $r->keterangan ?? 'Keperluan lain' }}</span>

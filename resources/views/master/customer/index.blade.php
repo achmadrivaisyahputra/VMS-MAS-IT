@@ -79,7 +79,10 @@
                 <tbody class="divide-y divide-slate-100">
                     @forelse($customers as $c)
                         <tr class="hover:bg-slate-50 transition-colors">
-                            <td class="p-4 font-bold text-[#003399]">{{ $c->nama_perusahaan }}</td>
+                            <td class="p-4">
+                                <a href="{{ route('master.customer.show', $c->kode) }}" class="font-bold text-[#003399] hover:underline" title="Lihat detail customer">{{ $c->nama_perusahaan }}</a>
+                                @if($c->kode)<div class="text-[10px] font-mono font-bold text-slate-400 mt-0.5"><a href="{{ route('master.customer.show', $c->kode) }}" class="hover:text-[#003399] hover:underline">{{ $c->kode }}</a></div>@endif
+                            </td>
                             <td class="p-4 font-bold text-slate-800">{{ $c->pic }}</td>
                             <td class="p-4 font-medium">
                                 <p class="text-slate-700">{{ $c->telepon }}</p>
@@ -96,7 +99,7 @@
                             <td class="p-4 text-center">
                                 <div class="inline-flex items-center gap-2">
                                     <!-- TOMBOL BARU: Kelola Cabang -->
-                                    <button onclick="openCabangModal({{ $c->id_customer }}, '{{ addslashes($c->nama_perusahaan) }}')" 
+                                    <button onclick="openCabangModal('{{ $c->kode }}', '{{ addslashes($c->nama_perusahaan) }}')" 
                                             class="p-1.5 bg-blue-50 border border-blue-100 hover:bg-blue-600 text-blue-600 hover:text-white rounded-lg transition shadow-sm" title="Kelola Cabang/Site">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
@@ -109,7 +112,7 @@
                                     </button>
                                     
                                     <!-- Tombol Delete -->
-                                    <form action="{{ route('master.customer.destroy', $c->id_customer) }}" method="POST">
+                                    <form action="{{ route('master.customer.destroy', $c->kode) }}" method="POST">
                                         @csrf
                                         @method('DELETE')
                                         <button type="button" onclick="showConfirmModal(this.form, 'Hapus Customer', 'Apakah Anda yakin ingin menghapus customer {{ $c->nama_perusahaan }}?')" 
@@ -344,7 +347,7 @@
     }
 
     function openEditModal(customer) {
-        document.getElementById('formEditCustomer').action = `/master/customer/${customer.id_customer}`;
+        document.getElementById('formEditCustomer').action = `/master/customer/${customer.kode}`;
         document.getElementById('edit_nama_perusahaan').value = customer.nama_perusahaan;
         document.getElementById('edit_pic').value = customer.pic;
         document.getElementById('edit_telepon').value = customer.telepon;
@@ -357,15 +360,15 @@
         document.getElementById('modalEditCustomer').classList.remove('hidden');
     }
 
-    function openCabangModal(idCustomer, namaPerusahaan) {
+    function openCabangModal(kodeCustomer, namaPerusahaan) {
         document.getElementById('namaPerusahaanCabang').innerText = namaPerusahaan;
-        document.getElementById('formTambahCabang').action = `/master/customer/${idCustomer}/site`;
+        document.getElementById('formTambahCabang').action = `/master/customer/${kodeCustomer}/site`;
         document.getElementById('modalKelolaCabang').classList.remove('hidden');
         
         const tbody = document.getElementById('tbody_cabang');
         tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-slate-400 italic">Memuat data cabang...</td></tr>';
         
-        fetch(`/kunjungan/get-sites/${idCustomer}`)
+        fetch(`/kunjungan/get-sites/${kodeCustomer}`)
             .then(res => res.json())
             .then(data => {
                 tbody.innerHTML = '';

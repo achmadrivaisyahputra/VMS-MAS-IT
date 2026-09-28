@@ -38,25 +38,30 @@ Route::middleware(['auth', 'role:Engineer'])->prefix('engineer')->name('engineer
 
 // Master Data (Akses: Kepala Pimpinan & Pimpinan)
 Route::middleware(['auth', 'role:Kepala Pimpinan,Pimpinan'])->prefix('master')->name('master.')->group(function () {
-    // Customer
+    // Customer (URL memakai kode customer, misal: /master/customer/cst26001)
     Route::resource('customer', CustomerController::class)->except(['create', 'show', 'edit']);
+    Route::get('customer/{kode}', [CustomerController::class, 'show'])->name('customer.show');
 
     // Master Data Site Perusahaan (terkoneksi dengan Customer)
     Route::resource('site', SiteController::class)->except(['create', 'show', 'edit']);
 
     // Master Data Cabang (Site) via Customer
-    Route::post('customer/{id_customer}/site', [\App\Http\Controllers\CustomerSiteController::class, 'store'])->name('customer.site.store');
+    Route::post('customer/{kode}/site', [\App\Http\Controllers\CustomerSiteController::class, 'store'])->name('customer.site.store');
     Route::put('customer/site/{id_site}', [\App\Http\Controllers\CustomerSiteController::class, 'update'])->name('customer.site.update');
     Route::delete('customer/site/{id_site}', [\App\Http\Controllers\CustomerSiteController::class, 'destroy'])->name('customer.site.destroy');
     
     // Engineer
     Route::resource('engineer', EngineerController::class)->except(['create', 'show', 'edit']);
     
-    // Tool
+    // Tool (URL memakai kode tool, misal: /master/tool/tls26001)
     Route::resource('tool', ToolController::class)->except(['create', 'show', 'edit']);
-    Route::post('tool/{id}/tambah-stok', [ToolController::class, 'tambahStok'])->name('tool.tambah-stok');
+    Route::get('tool/{kode}', [ToolController::class, 'show'])->name('tool.show');
+    Route::post('tool/{kode}/tambah-stok', [ToolController::class, 'tambahStok'])->name('tool.tambah-stok');
     // Riwayat peminjaman semua tools (pimpinan/admin)
     Route::get('peminjaman/riwayat-semua', [PeminjamanToolController::class, 'riwayatSemua'])->name('peminjaman.riwayat-semua');
+
+    // Pengaturan Format Nomor / Prefix (Kepala Pimpinan & Pimpinan)
+    Route::resource('format-nomor', \App\Http\Controllers\FormatNomorController::class)->except(['create', 'show', 'edit']);
 });
 
 // Rute Peminjaman Tools (semua role login)
@@ -67,8 +72,8 @@ Route::middleware(['auth'])->prefix('peminjaman')->name('peminjaman.')->group(fu
     Route::post('/pinjam', [PeminjamanToolController::class, 'store'])->name('pinjam');
     // Kembalikan tools
     Route::post('/{id}/kembalikan', [PeminjamanToolController::class, 'kembalikan'])->name('kembalikan');
-    // Riwayat per tool
-    Route::get('/riwayat/{tool}', [PeminjamanToolController::class, 'riwayat'])->name('riwayat');
+    // Riwayat per tool (pakai kode tool)
+    Route::get('/riwayat/{kode}', [PeminjamanToolController::class, 'riwayat'])->name('riwayat');
 });
 
 // Rute Kunjungan

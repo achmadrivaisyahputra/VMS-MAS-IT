@@ -52,7 +52,11 @@
                     @forelse($riwayat as $r)
                         <tr class="hover:bg-slate-50 transition-colors">
                             <td class="p-4">
-                                <span class="font-mono text-[10px] text-[#003399] font-bold uppercase">{{ $r->tool->kode ?? '-' }}</span>
+                                @if($r->tool)
+                                    <a href="{{ route('master.tool.show', $r->tool->kode) }}" class="font-mono text-[10px] text-[#003399] font-bold uppercase hover:underline">{{ $r->tool->kode }}</a>
+                                @else
+                                    <span class="font-mono text-[10px] text-slate-400 font-bold uppercase">-</span>
+                                @endif
                                 <p class="font-bold text-slate-800 mt-1">{{ $r->tool->nama_alat ?? '-' }}</p>
                             </td>
                             <td class="p-4 font-bold text-slate-800">{{ $r->engineer->user->nama ?? '-' }}</td>
@@ -70,7 +74,7 @@
                             </td>
                             <td class="p-4 font-medium text-slate-500 max-w-xs">
                                 @if($r->id_kunjungan)
-                                    <a href="{{ route('kunjungan.show', $r->id_kunjungan) }}" class="text-[#003399] font-bold hover:underline">{{ $r->kunjungan->nomor ?? '-' }}</a>
+                                    <a href="{{ route('kunjungan.show', $r->nomor) }}" class="text-[#003399] font-bold hover:underline">{{ $r->kunjungan->nomor ?? '-' }}</a>
                                     <span class="block text-[11px]">{{ $r->kunjungan->customer->nama_perusahaan ?? '' }}</span>
                                 @else
                                     <span class="italic">{{ $r->keterangan ?? 'Keperluan lain' }}</span>

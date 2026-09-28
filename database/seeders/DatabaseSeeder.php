@@ -41,5 +41,8 @@ class DatabaseSeeder extends Seeder
             'created_at' => now(),
         ]);
 
+        // Format penomoran (prefix) — bisa diubah lewat menu Master Data
+        $this->call(FormatNomorSeeder::class);
+
     }
 }

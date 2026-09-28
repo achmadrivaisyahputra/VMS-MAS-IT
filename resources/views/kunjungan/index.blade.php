@@ -87,7 +87,13 @@
                                 <p class="text-[10px] text-slate-500 mt-0.5 font-medium">{{ $k->tanggal }} ({{$k->waktu }})</p>
                             </td>
                             <td class="p-4 align-top">
-                                <p class="font-bold text-slate-800">{{ $k->customer->nama_perusahaan ?? '-' }}</p>
+                                <p class="font-bold text-slate-800">
+                                    @if($k->customer)
+                                        <a href="{{ route('master.customer.show', $k->customer->kode) }}" class="hover:text-[#003399] hover:underline">{{ $k->customer->nama_perusahaan }}</a>
+                                    @else
+                                        -
+                                    @endif
+                                </p>
                                 <!-- Indikator Cabang (Jika Ada) -->
                                 @if(isset($k->site) &&$k->site)
                                     <span class="inline-block px-1.5 py-0.5 bg-blue-100 text-[#003399] text-[9px] font-bold rounded mt-1 border border-blue-200">
@@ -112,7 +118,7 @@
                                 @endif
                             </td>
                             <td class="p-4 align-top text-center flex flex-col items-center gap-2">
-                                <a href="{{ route('kunjungan.show', $k->id_kunjungan) }}" class="w-full px-3 py-1.5 bg-blue-50 border border-blue-100 hover:bg-[#003399] text-[#003399] hover:text-white rounded-lg text-[10px] font-bold transition">
+                                <a href="{{ route('kunjungan.show', $k->nomor) }}" class="w-full px-3 py-1.5 bg-blue-50 border border-blue-100 hover:bg-[#003399] text-[#003399] hover:text-white rounded-lg text-[10px] font-bold transition">
                                     Detail
                                 </a>
                                 
@@ -121,7 +127,7 @@
                                         Edit / Reschedule
                                     </button>
                                     
-                                    <form id="formDeleteKunjungan-{{ $k->id_kunjungan }}" action="{{ route('kunjungan.destroy', $k->id_kunjungan) }}" method="POST" class="w-full">
+                                    <form id="formDeleteKunjungan-{{ $k->id_kunjungan }}" action="{{ route('kunjungan.destroy', $k->nomor) }}" method="POST" class="w-full">
                                         @csrf
                                         @method('DELETE')
                                         <button type="button" onclick="showConfirmModal(document.getElementById('formDeleteKunjungan-{{ $k->id_kunjungan }}'), 'Hapus Jadwal', 'Apakah Anda yakin ingin menghapus jadwal kunjungan ini secara permanen? Data yang sudah dihapus tidak dapat dikembalikan.')" class="w-full px-3 py-1.5 bg-rose-50 border border-rose-100 hover:bg-rose-600 text-rose-600 hover:text-white rounded-lg text-[10px] font-bold transition">
@@ -140,14 +146,14 @@
                                     <h4 class="text-base font-bold text-[#002266]">Edit Jadwal: {{ $k->nomor }}</h4>
                                     <button onclick="document.getElementById('modalEditKunjungan-{{ $k->id_kunjungan }}').classList.add('hidden')" class="text-slate-400 hover:text-rose-500 transition text-lg">&times;</button>
                                 </div>
-                                <form action="{{ route('kunjungan.update', $k->id_kunjungan) }}" method="POST" class="space-y-4 text-xs">
+                                <form action="{{ route('kunjungan.update', $k->nomor) }}" method="POST" class="space-y-4 text-xs">
                                     @csrf
                                     @method('PUT')
                                     <div>
                                         <label class="block text-slate-700 font-semibold mb-1.5">Customer / Klien</label>
                                         <select name="id_customer" data-target-site="id_site_edit_{{ $k->id_kunjungan }}" required class="customer-select-edit w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#003399]">
                                             @foreach($customers as $c)
-                                                <option value="{{ $c->id_customer }}" data-alamat="{{ $c->alamat }}" {{ $k->id_customer == $c->id_customer ? 'selected' : '' }}>{{ $c->nama_perusahaan }}</option>
+                                                <option value="{{ $c->id_customer }}" data-kode="{{ $c->kode }}" data-alamat="{{ $c->alamat }}" {{ $k->id_customer == $c->id_customer ? 'selected' : '' }}>{{ $c->nama_perusahaan }}</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -255,7 +261,7 @@
                 <select name="id_customer" id="id_customer_add" required class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#003399]">
                     <option value="">Pilih Customer</option>
                     @foreach($customers as $c)
-                        <option value="{{ $c->id_customer }}" data-alamat="{{ $c->alamat }}">{{ $c->nama_perusahaan }} ({{$c->pic }})</option>
+                        <option value="{{ $c->id_customer }}" data-kode="{{ $c->kode }}" data-alamat="{{ $c->alamat }}">{{ $c->nama_perusahaan }} ({{$c->pic }})</option>
                     @endforeach
                 </select>
             </div>
@@ -400,16 +406,16 @@
             }
         };
 
-        const loadSitesAjax = (idCustomer, siteSelectElement, selectedSiteId = null) => {
+        const loadSitesAjax = (kodeCustomer, siteSelectElement, selectedSiteId = null) => {
             siteSelectElement.innerHTML = '<option value="">Memuat data...</option>';
             siteSelectElement.disabled = true;
 
-            if(!idCustomer) {
+            if(!kodeCustomer) {
                 siteSelectElement.innerHTML = '<option value="">Pilih Customer Terlebih Dahulu</option>';
                 return;
             }
 
-            fetch(`/kunjungan/get-sites/${idCustomer}`)
+            fetch(`/kunjungan/get-sites/${kodeCustomer}`)
                 .then(res => res.json())
                 .then(data => {
                     siteSelectElement.disabled = false;
@@ -431,7 +437,8 @@
         const lokasiAdd = document.getElementById('lokasi_add');
         if(customerAdd && siteAdd) {
             customerAdd.addEventListener('change', (e) => {
-                loadSitesAjax(e.target.value, siteAdd);
+                const kode = e.target.selectedOptions[0]?.dataset.kode || '';
+                loadSitesAjax(kode, siteAdd);
                 // Default: isi alamat customer sampai site dipilih
                 if (lokasiAdd) lokasiAdd.value = alamatOfOption(customerAdd);
             });
@@ -448,12 +455,14 @@
 
             // Render cabang awal (saat halaman dimuat pertama kali)
             if(select.value) {
-                loadSitesAjax(select.value, siteSelectElement, preSelectedSite);
+                const kodeAwal = select.selectedOptions[0]?.dataset.kode || '';
+                loadSitesAjax(kodeAwal, siteSelectElement, preSelectedSite);
             }
 
             // Render cabang ulang jika customer diganti di tengah edit
             select.addEventListener('change', (e) => {
-                loadSitesAjax(e.target.value, siteSelectElement);
+                const kode = e.target.selectedOptions[0]?.dataset.kode || '';
+                loadSitesAjax(kode, siteSelectElement);
                 if (lokasiEl) lokasiEl.value = alamatOfOption(select);
             });
             siteSelectElement.addEventListener('change', () => syncLokasi(siteSelectElement, lokasiEl, select));
