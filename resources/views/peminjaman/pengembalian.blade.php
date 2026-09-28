@@ -101,6 +101,7 @@
                         <th class="p-4 font-bold text-center">Jumlah</th>
                         <th class="p-4 font-bold">Dipinjam</th>
                         <th class="p-4 font-bold">Dikembalikan</th>
+                        <th class="p-4 font-bold">Status</th>
                         <th class="p-4 font-bold">Kondisi</th>
                         <th class="p-4 font-bold">Keperluan</th>
                     </tr>
@@ -115,6 +116,11 @@
                             <td class="p-4 text-center font-bold">{{ $r->jumlah }}</td>
                             <td class="p-4 font-medium">{{ $r->tanggal_pinjam->format('d M Y, H:i') }}</td>
                             <td class="p-4 font-medium text-emerald-600">{{ $r->tanggal_kembali?->format('d M Y, H:i') ?? '-' }}</td>
+                            <td class="p-4">
+                                <span class="px-2.5 py-1 rounded-full text-[10px] font-bold border {{ $r->status == 'Dibatalkan' ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200' }}">
+                                    {{ $r->status }}
+                                </span>
+                            </td>
                             <td class="p-4">
                                 @if($r->kondisi_kembali)
                                     <span class="px-2.5 py-1 rounded-full text-[10px] font-bold {{ $r->kondisi_kembali == 'Baik' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : ($r->kondisi_kembali == 'Rusak Ringan' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-rose-100 text-rose-700 border border-rose-200') }}">

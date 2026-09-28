@@ -519,7 +519,8 @@ class KunjunganController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    // 11. Reschedule
+    // 11. Reschedule / Tolak Jadwal oleh Engineer
+    // Saat ditolak: semua tools kunjungan ikut dilepas (stok kembali, peminjaman ditutup)
     public function reschedule(Request $request, $id)
     {
         $kunjungan = $this->cariKunjungan($id);
@@ -528,12 +529,27 @@ class KunjunganController extends Controller
             'alasan_reschedule' => 'required|string|max:255',
         ]);
 
+        // Lepas semua tools: peminjaman dibatalkan (belum dibawa engineer) + kembalikan stok
+        $toolIds = $kunjungan->tools()->pluck('tools.id_tool')->toArray();
+        foreach ($toolIds as $toolId) {
+            $pinjam = PeminjamanTool::where('id_kunjungan', $kunjungan->id_kunjungan)
+                ->where('id_tool', $toolId)
+                ->where('status', 'Dipinjam')
+                ->first();
+            if ($pinjam) {
+                $pinjam->update(['status' => 'Dibatalkan', 'tanggal_kembali' => now(), 'keterangan' => 'Dibatalkan: kunjungan ditolak engineer sebelum tools dibawa.']);
+            }
+            Tool::where('id_tool', $toolId)->increment('stok', 1);
+        }
+        // Putuskan relasi tools dari kunjungan
+        $kunjungan->tools()->detach();
+
         $kunjungan->update([
             'status' => 'Reschedule',
             'alasan_reschedule' => $request->alasan_reschedule,
         ]);
 
-        return redirect()->back()->with('success', 'Jadwal berhasil ditolak dan dikembalikan ke Pimpinan untuk dijadwalkan ulang.');
+        return redirect()->back()->with('success', 'Jadwal berhasil ditolak, tools kunjungan dikembalikan ke stok, dan dikembalikan ke Pimpinan untuk dijadwalkan ulang.');
     }
 
     // 12. Konfirmasi / Terima Jadwal Kunjungan oleh Engineer

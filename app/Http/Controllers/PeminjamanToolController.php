@@ -36,7 +36,7 @@ class PeminjamanToolController extends Controller
 
         $riwayat = PeminjamanTool::with(['tool', 'kunjungan.customer'])
             ->where('id_engineer', $idEngineer)
-            ->where('status', 'Dikembalikan')
+            ->whereIn('status', ['Dikembalikan', 'Dibatalkan'])
             ->latest('tanggal_kembali')
             ->paginate(10, ['*'], 'riwayat_page');
 
