@@ -17,4 +17,4 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
-.vercel
+.vercel/public/pdf_preview/

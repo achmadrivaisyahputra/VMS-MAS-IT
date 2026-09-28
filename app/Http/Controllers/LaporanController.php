@@ -54,8 +54,57 @@ class LaporanController extends Controller
         return view('laporan.index', compact('laporanList'));
     }
 
+    // Preview PDF sebagai gambar (untuk modal preview di HP yang tidak bisa render PDF inline)
+    public function previewPdf($id_kunjungan)
+    {
+        $kunjungan = Kunjungan::with([
+            'customer',
+            'engineer.user',
+            'tools',
+            'aktivitas',
+            'dokumentasi',
+            'laporan.buktiPenyelesaian'
+        ])->where('nomor', $id_kunjungan)->firstOrFail();
+
+        $aktivitas = $kunjungan->aktivitas->firstWhere('id_engineer', $kunjungan->id_engineer) ?? $kunjungan->aktivitas->last();
+        $bukti = $kunjungan->laporan->buktiPenyelesaian ?? null;
+
+        $pdf = Pdf::loadView('laporan.pdf_template', compact('kunjungan', 'aktivitas', 'bukti'))
+                  ->setPaper('a4', 'portrait');
+
+        $tmpBase = tempnam(sys_get_temp_dir(), 'pdfprev') ;
+        @unlink($tmpBase);
+        $pdfPath = $tmpBase . '.pdf';
+        file_put_contents($pdfPath, $pdf->output());
+
+        $images = [];
+        $pngPrefix = $tmpBase . '_page';
+        exec('pdftoppm -png -r 80 ' . escapeshellarg($pdfPath) . ' ' . escapeshellarg($pngPrefix) . ' 2>/dev/null');
+
+        // Simpan sebagai file publik (1 file per kunjungan, ditimpa tiap preview)
+        $publicDir = public_path('pdf_preview');
+        if (!is_dir($publicDir)) mkdir($publicDir, 0755, true);
+        $i = 0;
+        foreach (glob($pngPrefix . '*.png') as $pngFile) {
+            $i++;
+            $dest = $publicDir . '/' . $id_kunjungan . '_' . $i . '.png';
+            @unlink($dest);
+            rename($pngFile, $dest);
+            $images[] = url('pdf_preview/' . $id_kunjungan . '_' . $i . '.png') . '?t=' . time();
+        }
+        // Hapus sisa file halaman lama jika jumlah halaman berkurang
+        for ($j = $i + 1; $j <= $i + 5; $j++) {
+            @unlink($publicDir . '/' . $id_kunjungan . '_' . $j . '.png');
+        }
+        @unlink($pdfPath);
+        @unlink($tmpBase);
+
+        return response()->json(['images' => $images])
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+    }
+
     // Generate dan Download / Stream PDF Service Completion Receipt
-    public function downloadPdf($id_kunjungan)
+    public function downloadPdf(Request $request, $id_kunjungan)
     {
         $kunjungan = Kunjungan::with([
             'customer',
@@ -73,7 +122,19 @@ class LaporanController extends Controller
         $pdf = Pdf::loadView('laporan.pdf_template', compact('kunjungan', 'aktivitas', 'bukti'))
                   ->setPaper('a4', 'portrait');
 
-        return $pdf->stream('Service_Completion_Receipt_' . $kunjungan->nomor . '.pdf');
+        // Anti-cache: pastikan browser selalu ambil PDF terbaru (real-time)
+        // ?download=1 -> force download; default -> inline (preview di browser)
+        $disposition = $request->get('download') ? 'attachment' : 'inline';
+        $filename = 'Service_Completion_Receipt_' . $kunjungan->nomor . '.pdf';
+        return response()->stream(function () use ($pdf) {
+            echo $pdf->output();
+        }, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => $disposition . '; filename="' . $filename . '"',
+            'Cache-Control' => 'no-cache, no-store, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ]);
     }
 
     // =====================================================================

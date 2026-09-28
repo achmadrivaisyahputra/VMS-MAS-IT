@@ -164,23 +164,13 @@ class KunjunganController extends Controller
             ]);
 
             if ($request->filled('tools')) {
+                // Tools hanya direncanakan dulu (attach); stok berkurang & tercatat
+                // per engineer SETELAH seluruh engineer setuju (lihat aktifkanToolsKunjungan)
+                $syncData = [];
                 foreach ($request->tools as $toolId) {
-                    $tool = Tool::lockForUpdate()->find($toolId);
-                    if (!$tool || $tool->stok < 1) {
-                        throw new \Exception("Stok " . ($tool->nama_alat ?? 'tool') . " tidak mencukupi (tersisa " . ($tool->stok ?? 0) . ").");
-                    }
-                    $kunjungan->tools()->attach($toolId, ['jumlah' => 1]);
-                    $tool->decrement('stok', 1);
-                    PeminjamanTool::create([
-                        'id_tool' => $toolId,
-                        'id_engineer' => $request->id_engineer,
-                        'id_kunjungan' => $kunjungan->id_kunjungan,
-                        'jumlah' => 1,
-                        'tanggal_pinjam' => now(),
-                        'status' => 'Dipinjam',
-                        'keterangan' => 'Dipakai untuk kunjungan ' . $nomorKunjungan,
-                    ]);
+                    $syncData[$toolId] = ['jumlah' => 1];
                 }
+                $kunjungan->tools()->sync($syncData);
             }
 
             if ($request->filled('support_engineers')) {
@@ -233,12 +223,17 @@ class KunjunganController extends Controller
             ]);
 
             $toolBaru = $request->filled('tools') ? $request->tools : [];
-            $this->sinkronToolsDenganStok($kunjungan, $toolBaru, $request->id_engineer);
+            $this->sinkronToolsKunjungan($kunjungan, $toolBaru);
 
             if ($request->filled('support_engineers')) {
                 $kunjungan->supportEngineers()->sync($request->support_engineers);
             } else {
                 $kunjungan->supportEngineers()->detach();
+            }
+            // Jika tools sudah aktif & tim berubah, pastikan engineer baru kebagian catatan
+            $kunjungan->refresh();
+            if ($this->toolsSudahAktif($kunjungan)) {
+                $this->aktifkanToolsKunjungan($kunjungan);
             }
             // Sinkronkan daftar konfirmasi
             $this->syncKonfirmasi($kunjungan->fresh(), $request->support_engineers ?? []);
@@ -254,7 +249,7 @@ class KunjunganController extends Controller
 
         DB::transaction(function () use ($kunjungan) {
             // Kembalikan semua tools yang masih dipinjam untuk kunjungan ini
-            $this->sinkronToolsDenganStok($kunjungan, [], $kunjungan->id_engineer);
+            $this->sinkronToolsKunjungan($kunjungan, []);
             $kunjungan->delete();
         });
 
@@ -266,21 +261,19 @@ class KunjunganController extends Controller
      * - Tool yang dilepas  -> peminjaman ditandai Dikembalikan, stok bertambah.
      * - Tool yang ditambah -> validasi stok, peminjaman baru, stok berkurang.
      */
-    private function sinkronToolsDenganStok(Kunjungan $kunjungan, array $toolBaru, $idEngineer)
+    /**
+     * Sinkron tools kunjungan (daftar rencana tools).
+     * - Jika tools kunjungan BELUM diaktifkan (belum semua engineer setuju):
+     *   hanya sync attach, tanpa ubah stok / catatan peminjaman.
+     * - Jika SUDAH diaktifkan: tool dilepas -> batalkan catatan + kembalikan stok;
+     *   tool ditambah -> aktifkan langsung (stok + catatan per engineer).
+     */
+    private function sinkronToolsKunjungan(Kunjungan $kunjungan, array $toolBaru)
     {
         $toolLama = $kunjungan->tools()->pluck('tools.id_tool')->map(fn($v) => (int) $v)->toArray();
         $toolBaru = array_map('intval', $toolBaru);
 
         $dilepas = array_diff($toolLama, $toolBaru);
-        $ditambah = array_diff($toolBaru, $toolLama);
-
-        // Validasi stok dulu untuk semua tool yang ditambah
-        foreach ($ditambah as $toolId) {
-            $tool = Tool::lockForUpdate()->find($toolId);
-            if (!$tool || $tool->stok < 1) {
-                throw new \Exception("Stok " . ($tool->nama_alat ?? 'tool') . " tidak mencukupi (tersisa " . ($tool->stok ?? 0) . ").");
-            }
-        }
 
         $syncData = [];
         foreach ($toolBaru as $toolId) {
@@ -288,30 +281,73 @@ class KunjunganController extends Controller
         }
         $kunjungan->tools()->sync($syncData);
 
-        // Tool dilepas -> kembalikan stok
+        $sudahAktif = $this->toolsSudahAktif($kunjungan);
+
+        // Tool dilepas -> batalkan catatan semua engineer + kembalikan stok (1x)
         foreach ($dilepas as $toolId) {
-            $pinjam = PeminjamanTool::where('id_kunjungan', $kunjungan->id_kunjungan)
-                ->where('id_tool', $toolId)
-                ->where('status', 'Dipinjam')
-                ->first();
-            if ($pinjam) {
-                $pinjam->update(['status' => 'Dikembalikan', 'tanggal_kembali' => now()]);
+            if ($sudahAktif) {
+                PeminjamanTool::where('id_kunjungan', $kunjungan->id_kunjungan)
+                    ->where('id_tool', $toolId)
+                    ->where('status', 'Dipinjam')
+                    ->update([
+                        'status' => 'Dibatalkan',
+                        'tanggal_kembali' => now(),
+                        'keterangan' => 'Dibatalkan: tool dilepas dari kunjungan ' . $kunjungan->nomor,
+                    ]);
+                Tool::where('id_tool', $toolId)->increment('stok', 1);
             }
-            Tool::where('id_tool', $toolId)->increment('stok', 1);
         }
 
-        // Tool ditambah -> kurangi stok + catat peminjaman
-        foreach ($ditambah as $toolId) {
-            Tool::where('id_tool', $toolId)->decrement('stok', 1);
-            PeminjamanTool::create([
-                'id_tool' => $toolId,
-                'id_engineer' => $idEngineer,
-                'id_kunjungan' => $kunjungan->id_kunjungan,
-                'jumlah' => 1,
-                'tanggal_pinjam' => now(),
-                'status' => 'Dipinjam',
-                'keterangan' => 'Dipakai untuk kunjungan ' . $kunjungan->nomor,
-            ]);
+        // Tool ditambah setelah aktif -> langsung aktifkan
+        if ($sudahAktif) {
+            $this->aktifkanToolsKunjungan($kunjungan);
+        }
+    }
+
+    /**
+     * Apakah tools kunjungan sudah diaktifkan (stok sudah berkurang)?
+     */
+    private function toolsSudahAktif(Kunjungan $kunjungan)
+    {
+        return PeminjamanTool::where('id_kunjungan', $kunjungan->id_kunjungan)
+            ->where('status', 'Dipinjam')
+            ->exists();
+    }
+
+    /**
+     * Aktifkan tools kunjungan: kurangi stok 1x per tool, buat catatan
+     * peminjaman untuk MASING-MASING engineer (lead + support).
+     * Idempotent: aman dipanggil berulang.
+     */
+    private function aktifkanToolsKunjungan(Kunjungan $kunjungan)
+    {
+        $engineers = collect([$kunjungan->id_engineer])
+            ->merge($kunjungan->supportEngineers()->pluck('engineers.id_engineer'))
+            ->filter()->unique()->values();
+
+        $kunjungan->load('tools');
+
+        foreach ($kunjungan->tools as $tool) {
+            $sudahAktif = PeminjamanTool::where('id_kunjungan', $kunjungan->id_kunjungan)
+                ->where('id_tool', $tool->id_tool)
+                ->where('status', 'Dipinjam')
+                ->exists();
+
+            if (!$sudahAktif) {
+                $toolModel = Tool::lockForUpdate()->find($tool->id_tool);
+                if (!$toolModel || $toolModel->stok < 1) {
+                    throw new \Exception("Stok " . ($toolModel->nama_alat ?? 'tool') . " tidak mencukupi (tersisa " . ($toolModel->stok ?? 0) . ").");
+                }
+                $toolModel->decrement('stok', 1);
+            }
+
+            // Catatan per engineer (termasuk engineer yang baru ditambahkan)
+            foreach ($engineers as $idEng) {
+                PeminjamanTool::firstOrCreate(
+                    ['id_kunjungan' => $kunjungan->id_kunjungan, 'id_tool' => $tool->id_tool, 'id_engineer' => $idEng, 'status' => 'Dipinjam'],
+                    ['jumlah' => 1, 'tanggal_pinjam' => now(), 'keterangan' => 'Dipakai untuk kunjungan ' . $kunjungan->nomor]
+                );
+            }
         }
     }
 
@@ -494,6 +530,11 @@ class KunjunganController extends Controller
             'lokasi_gps' => 'required|string',
         ]);
 
+        // Alur baru: check-out hanya boleh setelah laporan dibuat & TTD terkunci
+        if (!$kunjungan->laporan || !$kunjungan->laporan->buktiPenyelesaian) {
+            return redirect()->back()->with('error', 'Buat laporan dan selesaikan tanda tangan dulu sebelum check-out.');
+        }
+
         $coords = explode(',', str_replace(' ', '', $request->lokasi_gps));
         $lat = $coords[0] ?? null;
         $lng = $coords[1] ?? null;
@@ -525,7 +566,27 @@ class KunjunganController extends Controller
             'check_out_longitude' => $lng
         ]);
 
-        return redirect()->back()->with('success', 'Check-out berhasil! Silakan buat laporan jika belum ada.');
+        // Jika SEMUA engineer (lead + support) sudah check-out -> kunjungan Selesai
+        // Tools TIDAK otomatis kembali; engineer wajib mengembalikan manual via halaman Pengembalian
+        $allEngineerIds = array_unique(array_merge(
+            [$kunjungan->id_engineer],
+            $kunjungan->supportEngineers()->pluck('engineers.id_engineer')->toArray()
+        ));
+        $sudahCheckoutSemua = true;
+        foreach ($allEngineerIds as $eid) {
+            if (!$eid) continue;
+            $co = AktivitasPekerjaan::where('id_kunjungan', $kunjungan->id_kunjungan)
+                ->where('id_engineer', $eid)
+                ->whereNotNull('waktu_selesai')
+                ->exists();
+            if (!$co) { $sudahCheckoutSemua = false; break; }
+        }
+        if ($sudahCheckoutSemua) {
+            $kunjungan->update(['status' => 'Selesai']);
+            return redirect()->back()->with('success', 'Check-out berhasil! Semua engineer sudah check-out, kunjungan selesai.');
+        }
+
+        return redirect()->back()->with('success', 'Check-out berhasil! Menunggu engineer lain check-out.');
     }
 
     // 9a. Buat Laporan (hanya 1x per kunjungan - siapa cepat dia dapat)
@@ -543,15 +604,15 @@ class KunjunganController extends Controller
             return redirect()->back()->with('error', 'Laporan sudah dibuat oleh engineer lain. Hanya 1 laporan per kunjungan.');
         }
 
-        // Harus sudah check-out dulu
+        // Harus sudah check-in dulu (laporan dibuat sebelum check-out)
         $engineer = Engineer::where('id_pengguna', $user->id_pengguna)->first();
         $idEngineer = $engineer ? $engineer->id_engineer : null;
-        $sudahCheckout = AktivitasPekerjaan::where('id_kunjungan', $kunjungan->id_kunjungan)
+        $sudahCheckin = AktivitasPekerjaan::where('id_kunjungan', $kunjungan->id_kunjungan)
             ->where('id_engineer', $idEngineer)
-            ->whereNotNull('waktu_selesai')
+            ->whereNotNull('waktu_mulai')
             ->exists();
-        if ($user->id_role == 3 && !$sudahCheckout) {
-            return redirect()->back()->with('error', 'Anda harus check-out dulu sebelum membuat laporan.');
+        if ($user->id_role == 3 && !$sudahCheckin) {
+            return redirect()->back()->with('error', 'Anda harus check-in dulu sebelum membuat laporan.');
         }
 
         $laporan = Laporan::firstOrCreate(
@@ -580,15 +641,16 @@ class KunjunganController extends Controller
         }
 
         $request->validate([
-            'catatan' => 'required|string',
+            'hasil_pekerjaan' => 'required|string',
+            'catatan_tambahan' => 'nullable|string',
         ]);
 
-        $aktivitas = AktivitasPekerjaan::where('id_kunjungan', $kunjungan->id_kunjungan)->latest()->first();
-        if ($aktivitas) {
-            $aktivitas->update(['catatan' => $request->catatan]);
-        }
+        $kunjungan->laporan->update([
+            'hasil_pekerjaan' => $request->hasil_pekerjaan,
+            'catatan_tambahan' => $request->catatan_tambahan,
+        ]);
 
-        return redirect()->back()->with('success', 'Catatan berhasil direvisi dan akan tampil di laporan PDF.');
+        return redirect()->back()->with('success', 'Laporan berhasil direvisi dan PDF otomatis mengikuti revisi terbaru.');
     }
 
     // 10. Tanda Tangan Customer & Engineer
@@ -612,13 +674,11 @@ class KunjunganController extends Controller
             ]
         );
 
-        // Kunjungan selesai -> tools TIDAK otomatis kembali.
-        // Engineer wajib mengembalikan manual via halaman Pengembalian agar stok realtime
-        // (stok hanya bertambah saat tools benar-benar sudah kembali fisik).
+        // TTD selesai -> laporan terkunci, tapi kunjungan BELUM selesai.
+        // Engineer masih harus check-out; status Selesai saat semua sudah check-out.
+        $kunjungan->update(['draft_ttd_customer' => null, 'draft_ttd_engineer' => null]);
 
-        $kunjungan->update(['status' => 'Selesai', 'draft_ttd_customer' => null, 'draft_ttd_engineer' => null]);
-
-        return redirect()->route('kunjungan.show', $id)->with('success', 'Kunjungan kerja selesai secara resmi dan dokumen telah ditandatangani customer & engineer!');
+        return redirect()->route('kunjungan.show', $id)->with('success', 'Tanda tangan tersimpan dan terkunci! Silakan check-out untuk menyelesaikan kunjungan.');
     }
 
     // 10b. Simpan draft TTD otomatis (dipanggil via AJAX saat pad dikunci/diisi),
@@ -668,16 +728,16 @@ class KunjunganController extends Controller
         }
 
         // Pimpinan: tolak/reschedule seluruh kunjungan (logic lama - lepas tools)
+        // Batalkan SEMUA catatan peminjaman (tiap engineer) + kembalikan stok 1x per tool
         $toolIds = $kunjungan->tools()->pluck('tools.id_tool')->toArray();
         foreach ($toolIds as $toolId) {
-            $pinjam = PeminjamanTool::where('id_kunjungan', $kunjungan->id_kunjungan)
+            $dibatalkan = PeminjamanTool::where('id_kunjungan', $kunjungan->id_kunjungan)
                 ->where('id_tool', $toolId)
                 ->where('status', 'Dipinjam')
-                ->first();
-            if ($pinjam) {
-                $pinjam->update(['status' => 'Dibatalkan', 'tanggal_kembali' => now(), 'keterangan' => 'Dibatalkan: kunjungan ditolak engineer sebelum tools dibawa.']);
+                ->update(['status' => 'Dibatalkan', 'tanggal_kembali' => now(), 'keterangan' => 'Dibatalkan: kunjungan ditolak sebelum tools dibawa.']);
+            if ($dibatalkan) {
+                Tool::where('id_tool', $toolId)->increment('stok', 1);
             }
-            Tool::where('id_tool', $toolId)->increment('stok', 1);
         }
         $kunjungan->tools()->detach();
 
@@ -710,12 +770,16 @@ class KunjunganController extends Controller
             $diterima = KunjunganKonfirmasi::where('id_kunjungan', $kunjungan->id_kunjungan)->where('status', 'diterima')->count();
             if ($total > 0 && $total == $diterima && $kunjungan->status == 'Terjadwal') {
                 $kunjungan->update(['status' => 'Dikonfirmasi']);
+                // Semua setuju -> stok tools berkurang & tercatat di tiap engineer
+                $this->aktifkanToolsKunjungan($kunjungan->fresh());
             }
 
             return redirect()->back()->with('success', 'Konfirmasi diterima! Menunggu konfirmasi engineer lainnya.');
         }
 
         $kunjungan->update(['status' => 'Dikonfirmasi']);
+        // Pimpinan konfirmasi langsung -> tools ikut diaktifkan
+        $this->aktifkanToolsKunjungan($kunjungan->fresh());
         return redirect()->back()->with('success', 'Jadwal kunjungan berhasil dikonfirmasi dan diterima!');
     }
 
@@ -733,7 +797,8 @@ class KunjunganController extends Controller
         $baru = $request->id_engineer_baru;
 
         DB::transaction(function () use ($kunjungan, $lama, $baru) {
-            // Jika yang diganti adalah lead, update id_engineer kunjungan
+            // Pengganti OTOMATIS mewarisi role yang menolak:
+            // jika yang menolak lead -> pengganti jadi lead; jika support -> jadi support
             if ($kunjungan->id_engineer == $lama) {
                 $kunjungan->update(['id_engineer' => $baru]);
             } else {
@@ -748,9 +813,27 @@ class KunjunganController extends Controller
                 ['id_kunjungan' => $kunjungan->id_kunjungan, 'id_engineer' => $baru],
                 ['status' => 'menunggu']
             );
+            // Tools kunjungan ikut pindah ke engineer pengganti
+            $sudahPunya = PeminjamanTool::where('id_kunjungan', $kunjungan->id_kunjungan)
+                ->where('id_engineer', $baru)
+                ->where('status', 'Dipinjam')
+                ->exists();
+            if ($sudahPunya) {
+                // Pengganti sudah punya catatan (misal tadinya support) -> hapus catatan lama
+                PeminjamanTool::where('id_kunjungan', $kunjungan->id_kunjungan)
+                    ->where('id_engineer', $lama)
+                    ->where('status', 'Dipinjam')
+                    ->delete();
+            } else {
+                PeminjamanTool::where('id_kunjungan', $kunjungan->id_kunjungan)
+                    ->where('id_engineer', $lama)
+                    ->where('status', 'Dipinjam')
+                    ->update(['id_engineer' => $baru]);
+            }
         });
 
         $namaBaru = Engineer::with('user')->find($baru);
-        return redirect()->back()->with('success', 'Engineer berhasil diganti dengan ' . ($namaBaru->user->nama ?? 'engineer baru') . '. Menunggu konfirmasi darinya.');
+        $roleDiganti = $kunjungan->id_engineer == $baru ? 'LEAD' : 'SUPPORT';
+        return redirect()->back()->with('success', 'Engineer berhasil diganti dengan ' . ($namaBaru->user->nama ?? 'engineer baru') . ' sebagai ' . $roleDiganti . '. Menunggu konfirmasi darinya.');
     }
 }

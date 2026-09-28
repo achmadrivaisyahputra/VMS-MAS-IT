@@ -36,11 +36,11 @@
         </div>
         <div class="flex items-center gap-3">
             @if($kunjungan->status == 'Selesai' || $kunjungan->laporan)
-                <a href="{{ route('laporan.pdf', $kunjungan->nomor) }}" target="_blank" 
+                <button type="button" onclick="bukaPreviewPdf()"
                    class="px-4 py-2.5 bg-white hover:bg-slate-100 text-[#002266] rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition">
                     <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     <span>Cetak PDF Laporan</span>
-                </a>
+                </button>
             @endif
         </div>
     </div>
@@ -155,7 +155,8 @@
                         <form id="ganti-{{ $kf->id_engineer }}" action="{{ route('kunjungan.ganti-engineer', $kunjungan->nomor) }}" method="POST" class="hidden p-3 bg-white rounded-xl border border-blue-200 space-y-2">
                             @csrf
                             <input type="hidden" name="id_engineer_lama" value="{{ $kf->id_engineer }}">
-                            <label class="block text-xs font-bold text-slate-700">Ganti {{ $namaKf }} dengan:</label>
+                            <label class="block text-xs font-bold text-slate-700">Ganti {{ $namaKf }} <span class="px-1.5 py-0.5 rounded text-[10px] font-bold {{ $isLeadKf ? 'bg-[#002266] text-white' : 'bg-slate-200 text-slate-600' }}">{{ $isLeadKf ? 'LEAD' : 'SUPPORT' }}</span> dengan:</label>
+                            <p class="text-[11px] text-slate-500">Pengganti otomatis menjadi {{ $isLeadKf ? 'LEAD' : 'SUPPORT' }}.</p>
                             <div class="flex gap-2">
                                 <select name="id_engineer_baru" required class="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-xs">
                                     <option value="">-- Pilih Engineer --</option>
@@ -313,14 +314,14 @@
         </div>
     @endif
 
-    <!-- SECTION 3: Form Pembuatan Laporan Siap Pakai (disembunyikan setelah check-out) -->
+    <!-- SECTION 3: Form Check-Out (muncul setelah laporan dibuat & TTD terkunci) -->
     @php
         $myEngineer = Auth::user()->id_role == 3 ? \App\Models\Engineer::where('id_pengguna', Auth::user()->id_pengguna)->first() : null;
         $myAktivitas = $myEngineer ? $kunjungan->aktivitas->where('id_engineer', $myEngineer->id_engineer)->sortByDesc('created_at')->first() : null;
         $sudahCheckin = $myAktivitas && $myAktivitas->waktu_mulai;
         $sudahCheckout = $myAktivitas && $myAktivitas->waktu_selesai;
     @endphp
-    @if(Auth::user()->id_role == 3 && $kunjungan->status == 'Dikerjakan' && !$sudahCheckout)
+    @if(Auth::user()->id_role == 3 && $kunjungan->status == 'Dikerjakan' && !$sudahCheckout && $kunjungan->laporan && $kunjungan->laporan->buktiPenyelesaian)
         <div class="p-5 md:p-6 rounded-2xl bg-blue-50 border border-blue-200 shadow-sm space-y-4">
             <h4 class="text-sm font-bold text-[#002266]">📝 Input Catatan & Check-Out</h4>
             <p class="text-xs text-slate-600 font-medium">Tuliskan ringkasan hasil pengerjaan. Sistem akan memverifikasi lokasi GPS Anda untuk proses Check-Out.</p>
@@ -341,11 +342,11 @@
         </div>
     @endif
 
-    <!-- SECTION 3a: Buat Laporan (hanya 1x - siapa cepat dia dapat) -->
-    @if(Auth::user()->id_role == 3 && $sudahCheckout && !$kunjungan->laporan)
+    <!-- SECTION 3a: Buat Laporan (hanya 1x - siapa cepat dia dapat, setelah check-in) -->
+    @if(Auth::user()->id_role == 3 && $sudahCheckin && !$kunjungan->laporan)
         <div class="p-5 md:p-6 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm space-y-4 text-center">
             <h4 class="text-sm font-bold text-[#002266]">📄 Buat Laporan Kunjungan</h4>
-            <p class="text-xs text-slate-600 font-medium">Anda sudah check-out. Klik tombol di bawah untuk membuat laporan. <span class="font-bold text-amber-700">Hanya 1 laporan per kunjungan</span> — siapa yang klik duluan, dia yang jadi pembuatnya.</p>
+            <p class="text-xs text-slate-600 font-medium">Anda sudah check-in. Klik tombol di bawah untuk membuat laporan. <span class="font-bold text-amber-700">Hanya 1 laporan per kunjungan</span> — siapa yang klik duluan, dia yang jadi pembuatnya.</p>
             <form action="{{ route('kunjungan.buat-laporan', $kunjungan->nomor) }}" method="POST">
                 @csrf
                 <button type="submit" class="w-full py-3 bg-[#003399] hover:bg-[#002266] text-white font-bold rounded-xl shadow-lg transition">
@@ -360,22 +361,25 @@
         </div>
     @endif
 
-    <!-- SECTION 3b: Revisi Catatan Pekerjaan (tampil setelah check-out, sebelum TTD) -->
+    <!-- SECTION 3b: Isi / Revisi Laporan (tampil setelah laporan dibuat, sebelum TTD) -->
     @if(Auth::user()->id_role == 3 && $kunjungan->laporan && !$kunjungan->laporan->buktiPenyelesaian)
-        @php $aktivitasTerakhir = $kunjungan->aktivitas->sortByDesc('created_at')->first(); @endphp
         <div class="p-5 md:p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
-            <h4 class="text-sm font-bold text-[#002266]">📝 Revisi Catatan Pekerjaan</h4>
-            <p class="text-xs text-slate-600 font-medium">Catatan ini tampil di laporan PDF pada kolom "Deskripsi & Catatan Akhir". Anda masih bisa merevisinya sebelum customer menandatangani laporan.</p>
+            <h4 class="text-sm font-bold text-[#002266]">📝 Isi Laporan Pekerjaan</h4>
+            <p class="text-xs text-slate-600 font-medium">Tulis hasil pekerjaan dengan bahasa yang mudah dipahami customer. Isi ini tampil di laporan PDF dan <span class="font-bold">otomatis mengikuti revisi terbaru</span>.</p>
 
             <form action="{{ route('kunjungan.revisi-catatan', $kunjungan->nomor) }}" method="POST" class="space-y-3">
                 @csrf
                 <div>
-                    <label class="block text-slate-700 text-xs font-bold mb-1.5">Deskripsi / Hasil Pekerjaan Lapangan:</label>
-                    <textarea name="catatan" rows="4" required class="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#003399]">{{ old('catatan', $aktivitasTerakhir->catatan ?? '') }}</textarea>
+                    <label class="block text-slate-700 text-xs font-bold mb-1.5">Hasil Pekerjaan <span class="text-red-500">*</span></label>
+                    <textarea name="hasil_pekerjaan" rows="3" required placeholder="Contoh: Pemeliharaan server selesai. Sistem berjalan normal dan sudah dites bersama PIC." class="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#003399]">{{ old('hasil_pekerjaan', $kunjungan->laporan->hasil_pekerjaan ?? '') }}</textarea>
+                </div>
+                <div>
+                    <label class="block text-slate-700 text-xs font-bold mb-1.5">Catatan Tambahan <span class="text-slate-400 font-normal">(opsional)</span></label>
+                    <textarea name="catatan_tambahan" rows="2" placeholder="Contoh: Disarankan penggantian kabel LAN lantai 2 bulan depan." class="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#003399]">{{ old('catatan_tambahan', $kunjungan->laporan->catatan_tambahan ?? '') }}</textarea>
                 </div>
 
                 <button type="submit" class="px-5 py-2.5 bg-[#003399] hover:bg-[#002266] text-white rounded-xl text-xs font-bold shadow-md transition">
-                    Simpan Revisi Catatan
+                    💾 Simpan Laporan
                 </button>
             </form>
         </div>
@@ -429,7 +433,7 @@
 
                 <div class="flex flex-col sm:flex-row items-center justify-end gap-3 pt-1">
                     <button type="button" onclick="submitSignature()" class="w-full sm:w-auto px-6 py-2.5 bg-[#002266] hover:bg-[#001233] text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-900/20 transition">
-                        Selesaikan & Kunci Laporan Resmi
+                        Simpan & Kunci Tanda Tangan
                     </button>
                 </div>
             </form>
@@ -872,4 +876,61 @@
         );
     }
 </script>
+
+    <!-- MODAL PREVIEW PDF -->
+    <div id="modalPreviewPdf" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/60" onclick="tutupPreviewPdf()"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+                <h4 class="text-sm font-bold text-[#002266]">👁️ Preview Laporan PDF</h4>
+                <button type="button" onclick="tutupPreviewPdf()" class="text-slate-400 hover:text-slate-700 text-xl leading-none">✕</button>
+            </div>
+            <div class="flex-1 overflow-y-auto bg-slate-200 p-3 max-h-[60vh]" id="pdfPreviewBody">
+                <div id="pdfPreviewLoading" class="text-center py-10">
+                    <p class="text-sm font-bold text-slate-600">⏳ Memuat preview...</p>
+                </div>
+                <div id="pdfPreviewImages" class="space-y-3"></div>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2 px-5 py-4 border-t border-slate-200">
+                <a id="btnDownloadPdf" href="" class="flex-1 px-4 py-2.5 bg-[#003399] hover:bg-[#002266] text-white rounded-xl text-xs font-bold text-center transition">⬇️ Download PDF</a>
+                <button type="button" onclick="tutupPreviewPdf()" class="flex-1 px-4 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition">Tutup</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        async function bukaPreviewPdf() {
+            const t = Date.now();
+            document.getElementById('btnDownloadPdf').href = "{{ route('laporan.pdf', $kunjungan->nomor) }}?download=1&t=" + t;
+            document.getElementById('modalPreviewPdf').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            const loading = document.getElementById('pdfPreviewLoading');
+            const wrap = document.getElementById('pdfPreviewImages');
+            loading.style.display = 'block';
+            wrap.innerHTML = '';
+            try {
+                const res = await fetch("{{ route('laporan.preview', $kunjungan->nomor) }}?t=" + t);
+                const data = await res.json();
+                loading.style.display = 'none';
+                if (data.images && data.images.length) {
+                    data.images.forEach(src => {
+                        const img = document.createElement('img');
+                        img.src = src;
+                        img.className = 'w-full rounded-lg shadow-md border border-slate-300';
+                        img.alt = 'Preview PDF';
+                        wrap.appendChild(img);
+                    });
+                } else {
+                    wrap.innerHTML = '<p class="text-center text-sm text-rose-600 font-bold py-6">Gagal memuat preview.</p>';
+                }
+            } catch (e) {
+                loading.style.display = 'none';
+                wrap.innerHTML = '<p class="text-center text-sm text-rose-600 font-bold py-6">Gagal memuat preview.</p>';
+            }
+        }
+        function tutupPreviewPdf() {
+            document.getElementById('modalPreviewPdf').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    </script>
+
 @endsection

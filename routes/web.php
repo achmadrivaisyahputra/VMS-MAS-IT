@@ -97,6 +97,11 @@ Route::middleware(['auth'])->prefix('kunjungan')->name('kunjungan.')->group(func
         Route::delete('/{id}', [KunjunganController::class, 'destroy'])->name('destroy');
     });
 
+    // Role Pimpinan & Kepala Pimpinan
+    Route::middleware(['role:Kepala Pimpinan,Pimpinan'])->group(function () {
+        Route::post('/{id}/ganti-engineer', [KunjunganController::class, 'gantiEngineer'])->name('ganti-engineer');
+    });
+
     // Role Engineer
     Route::middleware(['role:Engineer'])->group(function () {
         Route::post('/{id}/terima', [KunjunganController::class, 'terima'])->name('terima');
@@ -106,7 +111,6 @@ Route::middleware(['auth'])->prefix('kunjungan')->name('kunjungan.')->group(func
         Route::post('/{id}/reschedule', [KunjunganController::class, 'reschedule'])->name('reschedule');
         Route::post('/{id}/checkout', [KunjunganController::class, 'checkOut'])->name('checkout');
         Route::post('/{id}/buat-laporan', [KunjunganController::class, 'buatLaporan'])->name('buat-laporan');
-        Route::post('/{id}/ganti-engineer', [KunjunganController::class, 'gantiEngineer'])->name('ganti-engineer');
         Route::post('/{id}/revisi-catatan', [KunjunganController::class, 'revisiCatatan'])->name('revisi-catatan');
     });
 
@@ -120,6 +124,7 @@ Route::middleware(['auth'])->prefix('kunjungan')->name('kunjungan.')->group(func
 Route::middleware(['auth'])->prefix('laporan')->name('laporan.')->group(function () {
     Route::get('/', [LaporanController::class, 'index'])->name('index');
     Route::get('/{id}/pdf', [LaporanController::class, 'downloadPdf'])->name('pdf');
+    Route::get('/{id}/preview', [LaporanController::class, 'previewPdf'])->name('preview');
     Route::post('/{id}/approve', [LaporanController::class, 'updateApproval'])->name('approve');
     Route::post('/{id}/email', [LaporanController::class, 'sendEmail'])->name('email');
     Route::post('/{id}/revisi', [LaporanController::class, 'submitRevisi'])->name('revisi');

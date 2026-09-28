@@ -157,7 +157,7 @@
         </tr>
         <tr>
             <td style="font-weight: bold; color: #002266;">Lokasi Pekerjaan</td>
-            <td colspan="3">: {{ $kunjungan->alamat_sinkron }}@if($kunjungan->patokan) ({{ $kunjungan->patokan }})@endif</td>
+            <td colspan="3">: {{ $kunjungan->alamat_sinkron }}</td>
         </tr>
     </table>
 
@@ -176,7 +176,7 @@
         <thead>
             <tr>
                 <th style="width: 25%;">Item Pekerjaan</th>
-                <th style="width: 35%;">Deskripsi & Catatan Akhir</th>
+                <th style="width: 35%;">Hasil Pekerjaan</th>
                 <th style="width: 20%;">Waktu Mulai (GPS)</th>
                 <th style="width: 20%;">Waktu Selesai (GPS)</th>
             </tr>
@@ -184,7 +184,16 @@
         <tbody>
             <tr>
                 <td style="font-weight: bold; color: #002266;">{{ $kunjungan->pekerjaan }}</td>
-                <td>{{ $aktivitas->catatan ?? 'Pekerjaan telah diselesaikan sesuai dengan instruksi kerja.' }}</td>
+                <td>
+                    @php
+                        $hasilPdf = $kunjungan->laporan->hasil_pekerjaan ?? $aktivitas->catatan ?? 'Pekerjaan telah diselesaikan sesuai dengan instruksi kerja.';
+                        $catatanPdf = $kunjungan->laporan->catatan_tambahan ?? null;
+                    @endphp
+                    {{ $hasilPdf }}
+                    @if($catatanPdf)
+                        <br><br><span style="font-weight: bold;">Catatan:</span> {{ $catatanPdf }}
+                    @endif
+                </td>
                 <td>
                     {{ $aktivitas->waktu_mulai ? date('d/m/Y H:i', strtotime($aktivitas->waktu_mulai)) : '-' }}<br>
                     <small style="color: #003399; font-size: 8px;">GPS: {{ $gpsIn }}</small>
