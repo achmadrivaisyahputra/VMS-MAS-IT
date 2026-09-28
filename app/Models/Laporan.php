@@ -19,4 +19,9 @@ class Laporan extends Model
     {
         return $this->hasOne(BuktiPenyelesaian::class, 'id_laporan', 'id_laporan');
     }
+
+    public function pembuat()
+    {
+        return $this->belongsTo(Engineer::class, 'id_engineer_pembuat', 'id_engineer');
+    }
 }

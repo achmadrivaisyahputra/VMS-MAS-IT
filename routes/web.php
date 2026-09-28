@@ -105,6 +105,8 @@ Route::middleware(['auth'])->prefix('kunjungan')->name('kunjungan.')->group(func
         Route::post('/{id}/pengeluaran', [KunjunganController::class, 'storePengeluaran'])->name('pengeluaran');
         Route::post('/{id}/reschedule', [KunjunganController::class, 'reschedule'])->name('reschedule');
         Route::post('/{id}/checkout', [KunjunganController::class, 'checkOut'])->name('checkout');
+        Route::post('/{id}/buat-laporan', [KunjunganController::class, 'buatLaporan'])->name('buat-laporan');
+        Route::post('/{id}/ganti-engineer', [KunjunganController::class, 'gantiEngineer'])->name('ganti-engineer');
         Route::post('/{id}/revisi-catatan', [KunjunganController::class, 'revisiCatatan'])->name('revisi-catatan');
     });
 

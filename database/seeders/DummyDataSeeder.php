@@ -162,28 +162,48 @@ class DummyDataSeeder extends Seeder
         }
 
         // ================= DATA TOOLS =================
+        // Kode lama (TL-XXX) diganti format baru via Format Nomor (tls26001, dst)
         $tools = [
-            ['Laptop Service Lenovo ThinkPad', 'TL-LTP-001', 'Komputer', 'Core i7, RAM 16GB, SSD 512GB', 'Baik', 3, 'Tersedia', 'Laptop utama teknisi lapangan'],
-            ['Laptop Service HP ProBook', 'TL-LTP-002', 'Komputer', 'Core i5, RAM 8GB, SSD 256GB', 'Baik', 2, 'Tersedia', 'Laptop cadangan'],
-            ['LAN Cable Tester', 'TL-NET-001', 'Jaringan', 'Tester kabel UTP RJ45/RJ11', 'Baik', 5, 'Tersedia', null],
-            ['Multimeter Digital', 'TL-ELC-001', 'Elektronik', 'Sanwa CD800a, True RMS', 'Baik', 4, 'Tersedia', null],
-            ['Obeng Set Presisi 32pcs', 'TL-MKN-001', 'Mekanik', 'Obeng magnetik presisi untuk elektronik', 'Baik', 6, 'Tersedia', null],
-            ['Tang Potong & Tang Lancip', 'TL-MKN-002', 'Mekanik', 'Set tang Tekiro', 'Rusak Ringan', 0, 'Tidak Tersedia', 'Gagang tang longgar, perlu servis'],
-            ['USB to Serial Adapter', 'TL-NET-002', 'Jaringan', 'Adapter console untuk konfigurasi switch/router', 'Baik', 5, 'Tersedia', null],
-            ['Harddisk Eksternal 1TB', 'TL-STG-001', 'Penyimpanan', 'Seagate Backup Plus 1TB', 'Baik', 2, 'Tersedia', 'Untuk backup data customer'],
-            ['Kabel UTP Cat6 50m', 'TL-NET-003', 'Jaringan', 'Roll kabel UTP Cat6 Belden', 'Baik', 8, 'Tersedia', null],
-            ['Thermal Paste & Cleaning Kit', 'TL-MKN-003', 'Mekanik', 'Kit pembersih dan pasta prosesor', 'Baik', 10, 'Tersedia', null],
+            ['Laptop Service Lenovo ThinkPad', 'Komputer', 'Core i7, RAM 16GB, SSD 512GB', 'Baik', 3, 'Tersedia', 'Laptop utama teknisi lapangan'],
+            ['Laptop Service HP ProBook', 'Komputer', 'Core i5, RAM 8GB, SSD 256GB', 'Baik', 2, 'Tersedia', 'Laptop cadangan'],
+            ['LAN Cable Tester', 'Jaringan', 'Tester kabel UTP RJ45/RJ11', 'Baik', 5, 'Tersedia', null],
+            ['Multimeter Digital', 'Elektronik', 'Sanwa CD800a, True RMS', 'Baik', 4, 'Tersedia', null],
+            ['Obeng Set Presisi 32pcs', 'Mekanik', 'Obeng magnetik presisi untuk elektronik', 'Baik', 6, 'Tersedia', null],
+            ['Tang Potong & Tang Lancip', 'Mekanik', 'Set tang Tekiro', 'Rusak Ringan', 0, 'Tidak Tersedia', 'Gagang tang longgar, perlu servis'],
+            ['USB to Serial Adapter', 'Jaringan', 'Adapter console untuk konfigurasi switch/router', 'Baik', 5, 'Tersedia', null],
+            ['Harddisk Eksternal 1TB', 'Penyimpanan', 'Seagate Backup Plus 1TB', 'Baik', 2, 'Tersedia', 'Untuk backup data customer'],
+            ['Kabel UTP Cat6 50m', 'Jaringan', 'Roll kabel UTP Cat6 Belden', 'Baik', 8, 'Tersedia', null],
+            ['Thermal Paste & Cleaning Kit', 'Mekanik', 'Kit pembersih dan pasta prosesor', 'Baik', 10, 'Tersedia', null],
         ];
 
-        foreach ($tools as [$nama, $kode, $kategori, $spesifikasi, $kondisi, $stok, $status, $keterangan]) {
-            $exists = DB::table('tools')->where('kode', $kode)->first();
+        $fmtTool = DB::table('format_nomor')->where('jenis', 'Kode Tool')->first();
+        $genKodeTool = function() use (&$fmtTool) {
+            if (!$fmtTool) return null;
+            $newCounter = $fmtTool->nomor_terakhir + 1;
+            $tahunPart = $fmtTool->tahun ? substr($fmtTool->tahun, -2) : '';
+            $kode = $fmtTool->prefix . $tahunPart . str_pad($newCounter, $fmtTool->digit, '0', STR_PAD_LEFT);
+            DB::table('format_nomor')->where('jenis', 'Kode Tool')->update(['nomor_terakhir' => $newCounter]);
+            $fmtTool->nomor_terakhir = $newCounter;
+            return $kode;
+        };
+        // Deteksi kode format lama (TL-XXX-XXX) agar di-migrasi ke format baru
+        $isKodeLama = fn($k) => $k && preg_match('/^TL-/i', $k);
+
+        foreach ($tools as [$nama, $kategori, $spesifikasi, $kondisi, $stok, $status, $keterangan]) {
+            $exists = DB::table('tools')->where('nama_alat', $nama)->first();
             if ($exists) {
-                DB::table('tools')->where('kode', $kode)->update(['stok' => $stok]);
+                $update = ['stok' => $stok];
+                // Migrasi kode lama / kosong ke format baru
+                if ($isKodeLama($exists->kode) || empty($exists->kode)) {
+                    $baru = $genKodeTool();
+                    if ($baru) $update['kode'] = $baru;
+                }
+                DB::table('tools')->where('id_tool', $exists->id_tool)->update($update);
                 continue;
             }
             DB::table('tools')->insert([
                 'nama_alat' => $nama,
-                'kode' => $kode,
+                'kode' => $genKodeTool(),
                 'kategori' => $kategori,
                 'spesifikasi' => $spesifikasi,
                 'kondisi' => $kondisi,

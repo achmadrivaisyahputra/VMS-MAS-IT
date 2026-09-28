@@ -105,17 +105,79 @@
         </div>
     </div>
 
-    <!-- SECTION 1: Konfirmasi Jadwal, Check-in GPS & Tombol Tolak Jadwal -->
-    @if(Auth::user()->id_role == 3)
-        @if($kunjungan->status == 'Terjadwal')
-            <!-- Opsi Konfirmasi Jadwal (Terima / Tolak) -->
-            <div class="p-6 rounded-2xl bg-amber-50 border border-amber-200 space-y-4 shadow-sm">
-                <div class="flex items-center justify-between">
-                    <h4 class="text-sm font-bold text-amber-900">⚡ Konfirmasi Penugasan Jadwal</h4>
-                    <span class="text-xs font-semibold bg-amber-200 text-amber-800 px-2.5 py-0.5 rounded-full">Menunggu Konfirmasi</span>
-                </div>
+    <!-- SECTION 1: Konfirmasi Jadwal per Engineer -->
+    @if($kunjungan->status == 'Terjadwal')
+        @php
+            $konfirmasiList = $kunjungan->konfirmasi()->with('engineer.user')->get();
+            $myKonfirmasi = null;
+            if (Auth::user()->id_role == 3) {
+                $engLogin = \App\Models\Engineer::where('id_pengguna', Auth::user()->id_pengguna)->first();
+                $myKonfirmasi = $engLogin ? $konfirmasiList->firstWhere('id_engineer', $engLogin->id_engineer) : null;
+            }
+            $adaDitolak = $konfirmasiList->where('status', 'ditolak')->count() > 0;
+        @endphp
+        <div class="p-6 rounded-2xl bg-amber-50 border border-amber-200 space-y-4 shadow-sm">
+            <div class="flex items-center justify-between">
+                <h4 class="text-sm font-bold text-amber-900">⚡ Konfirmasi Penugasan Jadwal</h4>
+                <span class="text-xs font-semibold bg-amber-200 text-amber-800 px-2.5 py-0.5 rounded-full">Menunggu Konfirmasi</span>
+            </div>
+
+            <!-- Daftar status konfirmasi tiap engineer -->
+            <div class="space-y-2">
+                @foreach($konfirmasiList as $kf)
+                    @php
+                        $isLeadKf = $kf->id_engineer == $kunjungan->id_engineer;
+                        $namaKf = $kf->engineer->user->nama ?? '-';
+                    @endphp
+                    <div class="flex items-center justify-between p-3 bg-white rounded-xl border border-amber-100 text-xs">
+                        <div>
+                            <p class="font-bold text-slate-800">{{ $namaKf }}
+                                <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold {{ $isLeadKf ? 'bg-[#002266] text-white' : 'bg-slate-200 text-slate-600' }}">{{ $isLeadKf ? 'LEAD' : 'SUPPORT' }}</span>
+                            </p>
+                            @if($kf->status == 'ditolak' && $kf->alasan_ditolak)
+                                <p class="text-rose-600 font-medium mt-0.5">Alasan tolak: "{{ $kf->alasan_ditolak }}"</p>
+                            @endif
+                        </div>
+                        <div class="flex items-center gap-2">
+                            @if($kf->status == 'diterima')
+                                <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[11px]">✅ Diterima</span>
+                            @elseif($kf->status == 'ditolak')
+                                <span class="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 font-bold text-[11px]">❌ Ditolak</span>
+                                @if(in_array(Auth::user()->id_role, [1, 2]))
+                                    <button type="button" onclick="document.getElementById('ganti-{{ $kf->id_engineer }}').classList.toggle('hidden')" class="px-3 py-1.5 rounded-lg bg-[#003399] hover:bg-[#002266] text-white font-bold text-[11px] transition">🔄 Ganti</button>
+                                @endif
+                            @else
+                                <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 font-bold text-[11px]">⏳ Menunggu</span>
+                            @endif
+                        </div>
+                    </div>
+                    @if($kf->status == 'ditolak' && in_array(Auth::user()->id_role, [1, 2]))
+                        <form id="ganti-{{ $kf->id_engineer }}" action="{{ route('kunjungan.ganti-engineer', $kunjungan->nomor) }}" method="POST" class="hidden p-3 bg-white rounded-xl border border-blue-200 space-y-2">
+                            @csrf
+                            <input type="hidden" name="id_engineer_lama" value="{{ $kf->id_engineer }}">
+                            <label class="block text-xs font-bold text-slate-700">Ganti {{ $namaKf }} dengan:</label>
+                            <div class="flex gap-2">
+                                <select name="id_engineer_baru" required class="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-xs">
+                                    <option value="">-- Pilih Engineer --</option>
+                                    @foreach(\App\Models\Engineer::with('user')->get() as $engOpt)
+                                        @if(!$konfirmasiList->contains('id_engineer', $engOpt->id_engineer))
+                                            <option value="{{ $engOpt->id_engineer }}">{{ $engOpt->user->nama ?? '-' }} ({{ $engOpt->kode ?? '-' }})</option>
+                                        @endif
+                                    @endforeach
+                                </select>
+                                <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold">Ganti</button>
+                            </div>
+                        </form>
+                    @endif
+                @endforeach
+            </div>
+
+            @if($adaDitolak && Auth::user()->id_role == 3)
+                <p class="text-xs text-rose-600 font-medium text-center">⚠️ Ada engineer yang menolak. Menunggu pimpinan mengganti.</p>
+            @endif
+
+            @if(Auth::user()->id_role == 3 && $myKonfirmasi && $myKonfirmasi->status == 'menunggu')
                 <p class="text-xs text-amber-800 font-medium">Silakan konfirmasi penerimaan penugasan ini sebelum menuju lokasi kerja.</p>
-                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                     <!-- Form Terima -->
                     <form action="{{ route('kunjungan.terima', $kunjungan->nomor) }}" method="POST">
@@ -125,19 +187,36 @@
                         </button>
                     </form>
 
-                    <!-- Form Tolak / Reschedule -->
+                    <!-- Form Tolak -->
                     <form action="{{ route('kunjungan.reschedule', $kunjungan->nomor) }}" method="POST" class="space-y-2">
                         @csrf
                         <div class="flex gap-2">
                             <input type="text" name="alasan_reschedule" required placeholder="Alasan Tolak (Contoh: Jadwal Bentrok)" class="w-full px-3 py-2 bg-white border border-slate-300 focus:border-rose-400 focus:ring-rose-400 rounded-xl text-xs text-slate-800">
-                            <button type="button" onclick="if(!this.form.checkValidity()) { this.form.reportValidity(); return; } showConfirmModal(this.form, 'Tolak & Reschedule', 'Apakah Anda yakin ingin menolak jadwal ini?')" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition whitespace-nowrap">
+                            <button type="button" onclick="if(!this.form.checkValidity()) { this.form.reportValidity(); return; } showConfirmModal(this.form, 'Tolak Jadwal', 'Apakah Anda yakin ingin menolak jadwal ini?')" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition whitespace-nowrap">
                                 ❌ Tolak
                             </button>
                         </div>
                     </form>
                 </div>
-            </div>
-        @elseif($kunjungan->status == 'Dikonfirmasi')
+            @elseif(Auth::user()->id_role == 3 && $myKonfirmasi && $myKonfirmasi->status == 'diterima')
+                <p class="text-xs text-emerald-700 font-bold text-center">✅ Anda sudah mengkonfirmasi. Menunggu engineer lainnya.</p>
+            @endif
+        </div>
+    @endif
+    @if(Auth::user()->id_role == 3)
+        @if(in_array($kunjungan->status, ['Dikonfirmasi', 'Dikerjakan']))
+            @php
+                $sudahCheckinSaya = false;
+                if (Auth::user()->id_role == 3) {
+                    $engSaya = \App\Models\Engineer::where('id_pengguna', Auth::user()->id_pengguna)->first();
+                    if ($engSaya) {
+                        $sudahCheckinSaya = \App\Models\AktivitasPekerjaan::where('id_kunjungan', $kunjungan->id_kunjungan)
+                            ->where('id_engineer', $engSaya->id_engineer)
+                            ->whereNotNull('waktu_mulai')->exists();
+                    }
+                }
+            @endphp
+            @if(!$sudahCheckinSaya)
             <!-- Kotak Check-In GPS -->
             <div class="p-6 rounded-2xl bg-blue-50 border border-blue-200 text-center space-y-3 shadow-sm">
                 <h4 class="text-sm font-bold text-[#002266]">Sudah Tiba di Lokasi Klien?</h4>
@@ -151,6 +230,7 @@
                     </button>
                 </form>
             </div>
+            @endif
         @endif
     @endif
 
@@ -234,7 +314,13 @@
     @endif
 
     <!-- SECTION 3: Form Pembuatan Laporan Siap Pakai (disembunyikan setelah check-out) -->
-    @if(Auth::user()->id_role == 3 && $kunjungan->status == 'Dikerjakan' && !$kunjungan->laporan)
+    @php
+        $myEngineer = Auth::user()->id_role == 3 ? \App\Models\Engineer::where('id_pengguna', Auth::user()->id_pengguna)->first() : null;
+        $myAktivitas = $myEngineer ? $kunjungan->aktivitas->where('id_engineer', $myEngineer->id_engineer)->sortByDesc('created_at')->first() : null;
+        $sudahCheckin = $myAktivitas && $myAktivitas->waktu_mulai;
+        $sudahCheckout = $myAktivitas && $myAktivitas->waktu_selesai;
+    @endphp
+    @if(Auth::user()->id_role == 3 && $kunjungan->status == 'Dikerjakan' && !$sudahCheckout)
         <div class="p-5 md:p-6 rounded-2xl bg-blue-50 border border-blue-200 shadow-sm space-y-4">
             <h4 class="text-sm font-bold text-[#002266]">📝 Input Catatan & Check-Out</h4>
             <p class="text-xs text-slate-600 font-medium">Tuliskan ringkasan hasil pengerjaan. Sistem akan memverifikasi lokasi GPS Anda untuk proses Check-Out.</p>
@@ -249,9 +335,28 @@
                 </div>
                 
                 <button type="button" onclick="getGPSCheckOut()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition">
-                    📍 Ambil GPS Check-Out & Buat Laporan
+                    📍 Ambil GPS & Check-Out
                 </button>
             </form>
+        </div>
+    @endif
+
+    <!-- SECTION 3a: Buat Laporan (hanya 1x - siapa cepat dia dapat) -->
+    @if(Auth::user()->id_role == 3 && $sudahCheckout && !$kunjungan->laporan)
+        <div class="p-5 md:p-6 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm space-y-4 text-center">
+            <h4 class="text-sm font-bold text-[#002266]">📄 Buat Laporan Kunjungan</h4>
+            <p class="text-xs text-slate-600 font-medium">Anda sudah check-out. Klik tombol di bawah untuk membuat laporan. <span class="font-bold text-amber-700">Hanya 1 laporan per kunjungan</span> — siapa yang klik duluan, dia yang jadi pembuatnya.</p>
+            <form action="{{ route('kunjungan.buat-laporan', $kunjungan->nomor) }}" method="POST">
+                @csrf
+                <button type="submit" class="w-full py-3 bg-[#003399] hover:bg-[#002266] text-white font-bold rounded-xl shadow-lg transition">
+                    📄 Buat Laporan Sekarang
+                </button>
+            </form>
+        </div>
+    @endif
+    @if($kunjungan->laporan && $kunjungan->laporan->pembuat)
+        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 font-medium text-center shadow-sm">
+            📄 Laporan dibuat oleh <span class="font-bold text-[#003399]">{{ $kunjungan->laporan->pembuat->user->nama ?? '-' }}</span>
         </div>
     @endif
 
@@ -277,7 +382,7 @@
     @endif
 
     <!-- SECTION 4: Kotak Tanda Tangan Digital Khusus Customer -->
-    @if(($kunjungan->status == 'Dikerjakan' &&$kunjungan->laporan) || ($kunjungan->laporan && !$kunjungan->laporan->buktiPenyelesaian))
+    @if((($kunjungan->status == 'Dikerjakan' &&$kunjungan->laporan) || ($kunjungan->laporan && !$kunjungan->laporan->buktiPenyelesaian)))
         <div class="p-5 md:p-6 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm space-y-4">
             <div class="flex items-center gap-2">
                 <span class="w-3 h-3 rounded-full bg-amber-500 animate-ping"></span>

@@ -41,43 +41,44 @@
     <div class="p-5 md:p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
         <h4 class="text-sm font-bold text-[#002266] mb-4 flex items-center gap-2">
             <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
-            Tugas Kunjungan Aktif Saat Ini
+            Tugas Kunjungan Belum Selesai ({{ $tugasAktif->count() ?? 0 }})
         </h4>
 
-        @if($kunjunganAktif)
-            <div class="p-4 rounded-xl bg-blue-50/50 border border-blue-100 space-y-4">
+        @forelse($tugasAktif ?? [] as $tugas)
+            <div class="p-4 rounded-xl bg-blue-50/50 border border-blue-100 space-y-4 mb-3">
                 <div class="flex flex-col sm:flex-row justify-between items-start gap-2">
                     <div>
-                        <a href="{{ route('kunjungan.show', $kunjunganAktif->nomor) }}" class="px-2 py-0.5 rounded bg-blue-100 text-[#003399] text-[10px] font-bold uppercase hover:underline">{{ $kunjunganAktif->nomor }}</a>
-                        <h5 class="text-base font-bold text-slate-800 mt-2">{{ $kunjunganAktif->pekerjaan }}</h5>
-                        <p class="text-xs text-slate-600 font-semibold">{{ $kunjunganAktif->customer->nama_perusahaan ?? '-' }}</p>
-                        <p class="text-xs text-slate-500 mt-0.5">📍 {{ $kunjunganAktif->alamat_sinkron }}</p>
-                        @if($kunjunganAktif->patokan)
-                            <p class="text-[11px] text-amber-600 font-semibold mt-0.5">📎 {{ $kunjunganAktif->patokan }}</p>
+                        <a href="{{ route('kunjungan.show', $tugas->nomor) }}" class="px-2 py-0.5 rounded bg-blue-100 text-[#003399] text-[10px] font-bold uppercase hover:underline">{{ $tugas->nomor }}</a>
+                        <h5 class="text-base font-bold text-slate-800 mt-2">{{ $tugas->pekerjaan }}</h5>
+                        <p class="text-xs text-slate-600 font-semibold">{{ $tugas->customer->nama_perusahaan ?? '-' }}</p>
+                        <p class="text-xs text-slate-500 mt-0.5">📍 {{ $tugas->alamat_sinkron }}</p>
+                        @if($tugas->patokan)
+                            <p class="text-[11px] text-amber-600 font-semibold mt-0.5">📎 {{ $tugas->patokan }}</p>
                         @endif
+                        <p class="text-[11px] text-slate-500 font-medium mt-1">📅 {{ \Carbon\Carbon::parse($tugas->tanggal)->format('d M Y') }}</p>
                         
                         <p class="text-[10px] mt-2 inline-block px-2 py-1 rounded-md bg-white border border-slate-200 text-slate-600 font-medium">
-                            Peran Anda: <strong class="text-[#003399]">{{ $kunjunganAktif->id_engineer == $engineer->id_engineer ? 'Lead Engineer' : 'Tim Support' }}</strong>
+                            Peran Anda: <strong class="text-[#003399]">{{ $tugas->id_engineer == $engineer->id_engineer ? 'Lead Engineer' : 'Tim Support' }}</strong>
                         </p>
                     </div>
                     <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-600 border border-amber-200">
-                        {{ $kunjunganAktif->status }}
+                        {{ $tugas->status }}
                     </span>
                 </div>
 
                 <div class="pt-3 border-t border-blue-100 flex flex-wrap gap-2">
-                    <a href="{{ route('kunjungan.show', $kunjunganAktif->nomor) }}" 
+                    <a href="{{ route('kunjungan.show', $tugas->nomor) }}" 
                        class="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-[#002266] to-[#0044cc] hover:from-[#001a4d] hover:to-[#003399] text-white rounded-xl font-semibold text-xs text-center shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 transition-all">
                         <span>Buka Lembar Kerja Kunjungan</span>
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                     </a>
                 </div>
             </div>
-        @else
+        @empty
             <div class="p-8 text-center bg-slate-50 rounded-xl border border-slate-200">
                 <p class="text-xs text-slate-500 font-medium">Tidak ada penugasan aktif saat ini. Anda berada dalam status standby.</p>
             </div>
-        @endif
+        @endforelse
     </div>
 
     <!-- Riwayat Kunjungan Selesai -->

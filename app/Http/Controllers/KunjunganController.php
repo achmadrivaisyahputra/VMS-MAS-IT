@@ -12,6 +12,7 @@ use App\Models\Laporan;
 use App\Models\BuktiPenyelesaian;
 use App\Models\Pengeluaran;
 use App\Models\CustomerSite;
+use App\Models\KunjunganKonfirmasi;
 use App\Models\PeminjamanTool;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,6 +29,38 @@ class KunjunganController extends Controller
         return Kunjungan::where('nomor', $nomor)->firstOrFail();
     }
 
+    // Sinkronkan daftar konfirmasi: lead + support dapat status 'menunggu'
+    // Engineer yang sudah ada tidak di-reset (kecuali diganti)
+    private function syncKonfirmasi(Kunjungan $kunjungan, array $supportIds = [])
+    {
+        $engineerIds = array_unique(array_merge([$kunjungan->id_engineer], $supportIds));
+        foreach ($engineerIds as $eid) {
+            if (!$eid) continue;
+            KunjunganKonfirmasi::firstOrCreate(
+                ['id_kunjungan' => $kunjungan->id_kunjungan, 'id_engineer' => $eid],
+                ['status' => 'menunggu']
+            );
+        }
+        // Hapus konfirmasi engineer yang sudah tidak terlibat
+        KunjunganKonfirmasi::where('id_kunjungan', $kunjungan->id_kunjungan)
+            ->whereNotIn('id_engineer', $engineerIds)
+            ->delete();
+    }
+
+    // Cek peran engineer yang login terhadap kunjungan: 'lead', 'support', atau null
+    private function peranEngineer(Kunjungan $kunjungan)
+    {
+        $user = Auth::user();
+        if ($user->id_role != 3) return null;
+        $engineer = Engineer::where('id_pengguna', $user->id_pengguna)->first();
+        if (!$engineer) return null;
+        if ($kunjungan->id_engineer == $engineer->id_engineer) return 'lead';
+        if ($kunjungan->supportEngineers()->where('engineers.id_engineer', $engineer->id_engineer)->exists()) return 'support';
+        return null;
+    }
+
+    // Pastikan hanya lead engineer yang boleh melakukan aksi ini
+
     // 1. Tampilkan List Kunjungan
     public function index(Request $request)
     {
@@ -35,11 +68,16 @@ class KunjunganController extends Controller
         // OPTIMASI: Tambahkan 'site' di eager loading
         $query = Kunjungan::with(['customer', 'site', 'engineer.user', 'tools', 'supportEngineers.user']);
 
-        // Jika engineer, filter hanya kunjungan miliknya
+        // Jika engineer, filter hanya kunjungan miliknya (sebagai lead ATAU support)
         if ($user->id_role == 3) {
             $engineer = Engineer::where('id_pengguna', $user->id_pengguna)->first();
             if ($engineer) {
-                $query->where('id_engineer', $engineer->id_engineer);
+                $query->where(function($q) use ($engineer) {
+                    $q->where('id_engineer', $engineer->id_engineer)
+                      ->orWhereHas('supportEngineers', function($sq) use ($engineer) {
+                          $sq->where('engineers.id_engineer', $engineer->id_engineer);
+                      });
+                });
             }
         }
 
@@ -148,6 +186,8 @@ class KunjunganController extends Controller
             if ($request->filled('support_engineers')) {
                 $kunjungan->supportEngineers()->attach($request->support_engineers);
             }
+            // Buat daftar konfirmasi untuk lead + support
+            $this->syncKonfirmasi($kunjungan, $request->support_engineers ?? []);
         });
 
         return redirect()->back()->with('success', 'Jadwal Kunjungan berhasil dibuat!');
@@ -200,6 +240,8 @@ class KunjunganController extends Controller
             } else {
                 $kunjungan->supportEngineers()->detach();
             }
+            // Sinkronkan daftar konfirmasi
+            $this->syncKonfirmasi($kunjungan->fresh(), $request->support_engineers ?? []);
         });
 
         return redirect()->back()->with('success', 'Data Kunjungan berhasil diperbarui!');
@@ -285,9 +327,17 @@ class KunjunganController extends Controller
             'aktivitas', 
             'dokumentasi', 
             'laporan.buktiPenyelesaian',
+            'laporan.pembuat.user',
             'pengeluaran',
-            'supportEngineers.user' 
+            'supportEngineers.user',
+            'konfirmasi.engineer.user'
         ])->where('nomor', $id)->firstOrFail();
+
+        // Otorisasi: engineer hanya boleh lihat kunjungannya sendiri (lead/support)
+        $user = Auth::user();
+        if ($user->id_role == 3 && !$this->peranEngineer($kunjungan)) {
+            abort(403, 'Anda tidak terlibat dalam kunjungan ini.');
+        }
 
         return view('kunjungan.show', compact('kunjungan'));
     }
@@ -297,7 +347,13 @@ class KunjunganController extends Controller
     {
         $kunjungan = Kunjungan::with('customer')->where('nomor', $id)->firstOrFail();
 
-        if (!in_array($kunjungan->status, ['Terjadwal', 'Dikonfirmasi'])) {
+        // Lead & support boleh check-in, tapi harus terlibat di kunjungan ini
+        $user = Auth::user();
+        if ($user->id_role == 3 && !$this->peranEngineer($kunjungan)) {
+            abort(403, 'Anda tidak terlibat dalam kunjungan ini.');
+        }
+
+        if (!in_array($kunjungan->status, ['Terjadwal', 'Dikonfirmasi', 'Dikerjakan'])) {
             return redirect()->back()->with('error', 'Status kunjungan tidak valid untuk dilakukan Check-in.');
         }
 
@@ -336,6 +392,19 @@ class KunjunganController extends Controller
             return redirect()->back()->with('error', 'Gagal Check-in! Anda berada di luar radius 100 meter dari lokasi kerja. Jarak Anda saat ini: ' . round($jarakMeter) . ' meter dari lokasi tujuan.');
         }
 
+        // Cek apakah engineer ini sudah check-in
+        $engineer = Engineer::where('id_pengguna', $user->id_pengguna)->first();
+        $idEngineer = $engineer ? $engineer->id_engineer : null;
+        if ($idEngineer) {
+            $sudahCheckin = AktivitasPekerjaan::where('id_kunjungan', $kunjungan->id_kunjungan)
+                ->where('id_engineer', $idEngineer)
+                ->whereNotNull('waktu_mulai')
+                ->exists();
+            if ($sudahCheckin) {
+                return redirect()->back()->with('error', 'Anda sudah check-in untuk kunjungan ini.');
+            }
+        }
+
         $kunjungan->update([
             'status' => 'Dikerjakan',
             'check_in_latitude' => $lat,
@@ -344,6 +413,7 @@ class KunjunganController extends Controller
 
         AktivitasPekerjaan::create([
             'id_kunjungan' => $kunjungan->id_kunjungan,
+            'id_engineer' => $idEngineer,
             'waktu_mulai' => now(),
             'lokasi' => $request->lokasi_gps,
             'deskripsi' => 'Engineer tiba di lokasi dan memulai pengerjaan.',
@@ -413,6 +483,12 @@ class KunjunganController extends Controller
     {
         $kunjungan = $this->cariKunjungan($id);
 
+        // Harus terlibat di kunjungan ini
+        $user = Auth::user();
+        if ($user->id_role == 3 && !$this->peranEngineer($kunjungan)) {
+            abort(403, 'Anda tidak terlibat dalam kunjungan ini.');
+        }
+
         $request->validate([
             'catatan' => 'required|string',
             'lokasi_gps' => 'required|string',
@@ -422,20 +498,62 @@ class KunjunganController extends Controller
         $lat = $coords[0] ?? null;
         $lng = $coords[1] ?? null;
 
+        // Check-out per engineer: update aktivitas miliknya sendiri
+        $engineer = Engineer::where('id_pengguna', $user->id_pengguna)->first();
+        $idEngineer = $engineer ? $engineer->id_engineer : null;
+
+        $aktivitas = AktivitasPekerjaan::where('id_kunjungan', $kunjungan->id_kunjungan)
+            ->where('id_engineer', $idEngineer)
+            ->whereNotNull('waktu_mulai')
+            ->whereNull('waktu_selesai')
+            ->latest()
+            ->first();
+
+        if (!$aktivitas) {
+            return redirect()->back()->with('error', 'Anda belum check-in atau sudah check-out untuk kunjungan ini.');
+        }
+
+        $aktivitas->update([
+            'waktu_selesai' => now(),
+            'catatan' => $request->catatan,
+        ]);
+
+        // Update koordinat check-out kunjungan (terakhir yang check-out)
         $kunjungan->update([
             'check_out_latitude' => $lat,
             'check_out_longitude' => $lng
         ]);
 
-        $aktivitas = AktivitasPekerjaan::where('id_kunjungan', $kunjungan->id_kunjungan)->latest()->first();
-        if ($aktivitas) {
-            $aktivitas->update([
-                'waktu_selesai' => now(),
-                'catatan' => $request->catatan,
-            ]);
+        return redirect()->back()->with('success', 'Check-out berhasil! Silakan buat laporan jika belum ada.');
+    }
+
+    // 9a. Buat Laporan (hanya 1x per kunjungan - siapa cepat dia dapat)
+    public function buatLaporan($id)
+    {
+        $kunjungan = $this->cariKunjungan($id);
+
+        $user = Auth::user();
+        if ($user->id_role == 3 && !$this->peranEngineer($kunjungan)) {
+            abort(403, 'Anda tidak terlibat dalam kunjungan ini.');
         }
 
-        Laporan::firstOrCreate(
+        // Jika sudah ada laporan, tolak
+        if ($kunjungan->laporan) {
+            return redirect()->back()->with('error', 'Laporan sudah dibuat oleh engineer lain. Hanya 1 laporan per kunjungan.');
+        }
+
+        // Harus sudah check-out dulu
+        $engineer = Engineer::where('id_pengguna', $user->id_pengguna)->first();
+        $idEngineer = $engineer ? $engineer->id_engineer : null;
+        $sudahCheckout = AktivitasPekerjaan::where('id_kunjungan', $kunjungan->id_kunjungan)
+            ->where('id_engineer', $idEngineer)
+            ->whereNotNull('waktu_selesai')
+            ->exists();
+        if ($user->id_role == 3 && !$sudahCheckout) {
+            return redirect()->back()->with('error', 'Anda harus check-out dulu sebelum membuat laporan.');
+        }
+
+        $laporan = Laporan::firstOrCreate(
             ['id_kunjungan' => $kunjungan->id_kunjungan],
             [
                 'tanggal_dibuat' => now(),
@@ -443,7 +561,12 @@ class KunjunganController extends Controller
             ]
         );
 
-        return redirect()->back()->with('success', 'Check-out berhasil! Menunggu verifikasi tanda tangan customer.');
+        // Catat siapa yang membuat
+        if ($idEngineer && !$laporan->id_engineer_pembuat) {
+            $laporan->update(['id_engineer_pembuat' => $idEngineer]);
+        }
+
+        return redirect()->back()->with('success', 'Laporan berhasil dibuat! Menunggu verifikasi tanda tangan customer.');
     }
 
     // 9b. Revisi Catatan Pekerjaan (sebelum laporan dikunci TTD customer)
@@ -529,7 +652,21 @@ class KunjunganController extends Controller
             'alasan_reschedule' => 'required|string|max:255',
         ]);
 
-        // Lepas semua tools: peminjaman dibatalkan (belum dibawa engineer) + kembalikan stok
+        $user = Auth::user();
+        if ($user->id_role == 3) {
+            // Penolakan per engineer: catat siapa yang menolak + alasannya
+            $engineer = Engineer::where('id_pengguna', $user->id_pengguna)->first();
+            if (!$engineer || !$this->peranEngineer($kunjungan)) {
+                abort(403, 'Anda tidak terlibat dalam kunjungan ini.');
+            }
+            KunjunganKonfirmasi::updateOrCreate(
+                ['id_kunjungan' => $kunjungan->id_kunjungan, 'id_engineer' => $engineer->id_engineer],
+                ['status' => 'ditolak', 'alasan_ditolak' => $request->alasan_reschedule, 'waktu_konfirmasi' => now()]
+            );
+            return redirect()->back()->with('success', 'Penolakan tercatat. Pimpinan akan mengganti Anda dengan engineer lain.');
+        }
+
+        // Pimpinan: tolak/reschedule seluruh kunjungan (logic lama - lepas tools)
         $toolIds = $kunjungan->tools()->pluck('tools.id_tool')->toArray();
         foreach ($toolIds as $toolId) {
             $pinjam = PeminjamanTool::where('id_kunjungan', $kunjungan->id_kunjungan)
@@ -541,7 +678,6 @@ class KunjunganController extends Controller
             }
             Tool::where('id_tool', $toolId)->increment('stok', 1);
         }
-        // Putuskan relasi tools dari kunjungan
         $kunjungan->tools()->detach();
 
         $kunjungan->update([
@@ -552,15 +688,68 @@ class KunjunganController extends Controller
         return redirect()->back()->with('success', 'Jadwal berhasil ditolak, tools kunjungan dikembalikan ke stok, dan dikembalikan ke Pimpinan untuk dijadwalkan ulang.');
     }
 
-    // 12. Konfirmasi / Terima Jadwal Kunjungan oleh Engineer
+    // 12. Konfirmasi / Terima Jadwal Kunjungan oleh Engineer (per engineer)
     public function terima($id)
     {
         $kunjungan = $this->cariKunjungan($id);
 
-        $kunjungan->update([
-            'status' => 'Dikonfirmasi',
+        $user = Auth::user();
+        if ($user->id_role == 3) {
+            $engineer = Engineer::where('id_pengguna', $user->id_pengguna)->first();
+            if (!$engineer || !$this->peranEngineer($kunjungan)) {
+                abort(403, 'Anda tidak terlibat dalam kunjungan ini.');
+            }
+            KunjunganKonfirmasi::updateOrCreate(
+                ['id_kunjungan' => $kunjungan->id_kunjungan, 'id_engineer' => $engineer->id_engineer],
+                ['status' => 'diterima', 'alasan_ditolak' => null, 'waktu_konfirmasi' => now()]
+            );
+
+            // Jika SEMUA engineer sudah terima -> kunjungan Dikonfirmasi
+            $total = KunjunganKonfirmasi::where('id_kunjungan', $kunjungan->id_kunjungan)->count();
+            $diterima = KunjunganKonfirmasi::where('id_kunjungan', $kunjungan->id_kunjungan)->where('status', 'diterima')->count();
+            if ($total > 0 && $total == $diterima && $kunjungan->status == 'Terjadwal') {
+                $kunjungan->update(['status' => 'Dikonfirmasi']);
+            }
+
+            return redirect()->back()->with('success', 'Konfirmasi diterima! Menunggu konfirmasi engineer lainnya.');
+        }
+
+        $kunjungan->update(['status' => 'Dikonfirmasi']);
+        return redirect()->back()->with('success', 'Jadwal kunjungan berhasil dikonfirmasi dan diterima!');
+    }
+
+    // 12b. Pimpinan ganti engineer yang menolak dengan engineer lain
+    public function gantiEngineer(Request $request, $id)
+    {
+        $kunjungan = $this->cariKunjungan($id);
+
+        $request->validate([
+            'id_engineer_lama' => 'required|exists:engineers,id_engineer',
+            'id_engineer_baru' => 'required|exists:engineers,id_engineer|different:id_engineer_lama',
         ]);
 
-        return redirect()->back()->with('success', 'Jadwal kunjungan berhasil dikonfirmasi dan diterima!');
+        $lama = $request->id_engineer_lama;
+        $baru = $request->id_engineer_baru;
+
+        DB::transaction(function () use ($kunjungan, $lama, $baru) {
+            // Jika yang diganti adalah lead, update id_engineer kunjungan
+            if ($kunjungan->id_engineer == $lama) {
+                $kunjungan->update(['id_engineer' => $baru]);
+            } else {
+                // Jika support, ganti di pivot
+                $kunjungan->supportEngineers()->detach($lama);
+                $kunjungan->supportEngineers()->attach($baru);
+            }
+            // Hapus konfirmasi lama, buat baru status menunggu
+            KunjunganKonfirmasi::where('id_kunjungan', $kunjungan->id_kunjungan)
+                ->where('id_engineer', $lama)->delete();
+            KunjunganKonfirmasi::firstOrCreate(
+                ['id_kunjungan' => $kunjungan->id_kunjungan, 'id_engineer' => $baru],
+                ['status' => 'menunggu']
+            );
+        });
+
+        $namaBaru = Engineer::with('user')->find($baru);
+        return redirect()->back()->with('success', 'Engineer berhasil diganti dengan ' . ($namaBaru->user->nama ?? 'engineer baru') . '. Menunggu konfirmasi darinya.');
     }
 }

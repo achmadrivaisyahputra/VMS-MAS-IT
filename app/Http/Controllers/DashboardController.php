@@ -85,17 +85,19 @@ class DashboardController extends Controller
         if ($engineer) {
             $engineerId = $engineer->id_engineer;
 
-            // 1. Kunjungan Aktif: Nyari 1 task terbaru yang statusnya masih jalan, entah dia jadi Lead atau nyantol di Tim Support
-            $kunjunganAktif = Kunjungan::with(['customer', 'site', 'tools'])
-                ->whereIn('status', ['Terjadwal', 'Dikerjakan'])
+            // 1. Tugas Aktif: SEMUA kunjungan yang belum selesai (Terjadwal/Dikonfirmasi/Dikerjakan), sebagai Lead atau Support
+            $tugasAktif = Kunjungan::with(['customer', 'site', 'tools'])
+                ->whereIn('status', ['Terjadwal', 'Dikonfirmasi', 'Dikerjakan'])
                 ->where(function($q) use ($engineerId) {
                     $q->where('id_engineer', $engineerId)
                       ->orWhereHas('supportEngineers', function($sq) use ($engineerId) {
                           $sq->where('engineers.id_engineer', $engineerId);
                       });
                 })
-                ->latest()
-                ->first();
+                ->orderBy('tanggal', 'asc')
+                ->get();
+            // Untuk kompatibilitas: tugas terbaru sebagai highlight
+            $kunjunganAktif = $tugasAktif->first();
 
             // 2. Riwayat Selesai: Ngambil 5 histori pekerjaan dia yang udah sukses kelar
             $riwayatKunjungan = Kunjungan::with(['customer', 'site'])
@@ -123,6 +125,6 @@ class DashboardController extends Controller
                 ->get();
         }
 
-        return view('dashboard.engineer', compact('engineer', 'kunjunganAktif', 'riwayatKunjungan', 'alertHariIni'));
+        return view('dashboard.engineer', compact('engineer', 'kunjunganAktif', 'tugasAktif', 'riwayatKunjungan', 'alertHariIni'));
     }
 }

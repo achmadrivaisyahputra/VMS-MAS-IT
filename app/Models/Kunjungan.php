@@ -59,6 +59,11 @@ class Kunjungan extends Model
                     ->withTimestamps();
     }
 
+    public function konfirmasi()
+    {
+        return $this->hasMany(KunjunganKonfirmasi::class, 'id_kunjungan', 'id_kunjungan');
+    }
+
     /**
      * Alamat kunjungan yang selalu sinkron dengan data site terkini.
      * Jika kunjungan terhubung ke site, pakai alamat site (live dari master).
