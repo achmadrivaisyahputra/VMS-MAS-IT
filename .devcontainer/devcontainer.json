@@ -1,0 +1,1 @@
+{"forwardPorts":[8000],"image":"mcr.microsoft.com/devcontainers/base:ubuntu","name":"VMS-MAS-IT Preview","onCreateCommand":"bash .devcontainer/setup.sh","portsAttributes":{"8000":{"label":"VMS App","onAutoForward":"silent","visibility":"public"}},"postStartCommand":"bash .devcontainer/start.sh"}
