@@ -11,7 +11,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style> body { font-family: 'Poppins', sans-serif; } </style>
+    <style>
+        body { font-family: 'Poppins', sans-serif; }
+        /* Scrollbar sidebar: selalu kelihatan di HP */
+        #sidebarNav::-webkit-scrollbar { width: 5px; }
+        #sidebarNav::-webkit-scrollbar-track { background: transparent; }
+        #sidebarNav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.35); border-radius: 99px; }
+        #sidebarNav::-webkit-scrollbar-thumb:active { background: rgba(255,255,255,0.6); }
+        #sidebarNav { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.35) transparent; }
+    </style>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-800 flex flex-col md:flex-row overflow-x-hidden">
 
@@ -28,8 +36,8 @@
     </div>
 
     <!-- Sidebar Menu (Responsive) -->
-    <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-[#001233] via-[#002266] to-[#0055ff] border-r border-blue-800/50 flex flex-col shrink-0 transform -translate-x-full md:translate-x-0 md:static transition-transform duration-200 ease-in-out min-h-screen shadow-[4px_0_24px_rgba(0,34,102,0.15)]">
-        <div>
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 h-[100dvh] bg-gradient-to-b from-[#001233] via-[#002266] to-[#0055ff] border-r border-blue-800/50 flex flex-col shrink-0 transform -translate-x-full md:translate-x-0 md:static transition-transform duration-200 ease-in-out shadow-[4px_0_24px_rgba(0,34,102,0.15)]">
+        <div class="flex flex-col h-full min-h-0">
             <!-- Brand Logo -->
             <div class="p-5 border-b border-blue-800/40 flex items-center justify-between">
                 <div class="flex items-center gap-3">
@@ -39,11 +47,40 @@
                         <p class="text-[10px] text-blue-300 font-medium tracking-wider uppercase">{{ Auth::user()->role->nama_role ?? 'Pengguna' }}</p>
                     </div>
                 </div>
-                <button onclick="toggleMobileSidebar()" class="md:hidden text-blue-300 hover:text-white">&times;</button>
+                <div class="flex items-center gap-1">
+                    <button onclick="toggleMobileSidebar()" class="md:hidden text-blue-300 hover:text-white text-2xl leading-none px-1">&times;</button>
+                </div>
+            </div>
+
+            <!-- Profil pengguna: pindah ke atas -->
+            <div class="p-4 border-b border-blue-800/40 shrink-0">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <div class="w-8 h-8 rounded-full bg-transparent border border-blue-200 text-white flex items-center justify-center text-xs font-bold shadow-sm shrink-0">
+                            {{ strtoupper(substr(Auth::user()->nama, 0, 1)) }}
+                        </div>
+                        <div class="truncate">
+                            <p class="text-xs font-semibold text-white truncate">{{ Auth::user()->nama }}</p>
+                            <p class="text-[10px] text-blue-200 truncate">{{ Auth::user()->email }}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0 ml-2">
+                        <a href="{{ route('profile.index') }}" title="Pengaturan Profil" class="p-1.5 text-blue-200 hover:text-white rounded-lg hover:bg-white/10 transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        </a>
+                        <form action="{{ route('logout') }}" method="POST">
+                            @csrf
+                            <button type="submit" title="Logout" class="p-1.5 text-blue-200 hover:text-white rounded-lg hover:bg-white/10 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                            </button>
+                        </form>
+                    </div>
+                </div>
             </div>
 
             <!-- Navigation Links -->
-            <nav class="p-4 space-y-1.5 text-xs font-medium">
+            <div class="relative flex-1 min-h-0 flex">
+            <nav id="sidebarNav" class="p-4 space-y-1.5 text-xs font-medium flex-1 overflow-y-auto overscroll-contain" style="-webkit-overflow-scrolling: touch; touch-action: pan-y; scrollbar-width: none;">
                 @php
                     $roleId = Auth::user()->id_role ?? 0;
                     $currentRoute = Route::currentRouteName();
@@ -117,33 +154,11 @@
                     <span>Laporan & PDF</span>
                 </a>
             </nav>
-            <!-- Profil pengguna: langsung di bawah menu -->
-            <div class="mt-3 p-4 border-t border-blue-400/20">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3 overflow-hidden">
-                    <div class="w-8 h-8 rounded-full bg-transparent border border-blue-200 text-white flex items-center justify-center text-xs font-bold shadow-sm shrink-0">
-                        {{ strtoupper(substr(Auth::user()->nama, 0, 1)) }}
-                    </div>
-                    <div class="truncate">
-                        <p class="text-xs font-semibold text-white truncate">{{ Auth::user()->nama }}</p>
-                        <p class="text-[10px] text-blue-200 truncate">{{ Auth::user()->email }}</p>
-                    </div>
-                </div>
-                
-                <!-- Aksi: Profil & Logout -->
-                <div class="flex items-center gap-1 shrink-0 ml-2">
-                    <a href="{{ route('profile.index') }}" title="Pengaturan Profil" class="p-1.5 text-blue-200 hover:text-white rounded-lg hover:bg-white/10 transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                    </a>
-                    <form action="{{ route('logout') }}" method="POST">
-                        @csrf
-                        <button type="submit" title="Logout" class="p-1.5 text-blue-200 hover:text-white rounded-lg hover:bg-white/10 transition">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                        </button>
-                    </form>
-                </div>
+            <!-- Scrollbar custom: selalu kelihatan, bisa di-drag -->
+            <div id="sidebarScrollTrack" class="w-2 shrink-0 my-2 mr-1.5 rounded-full bg-white/20 relative touch-none" style="display:none;">
+                <div id="sidebarScrollThumb" class="absolute left-0 right-0 rounded-full bg-white/70" style="min-height: 40px;"></div>
             </div>
-        </div>
+            </div>
         </div>
     </aside> 
 
@@ -184,8 +199,65 @@
 
     <script>
         function toggleMobileSidebar() {
-            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+            // Kunci scroll body saat sidebar terbuka (mobile saja)
+            const isOpen = !sidebar.classList.contains('-translate-x-full');
+            const isMobile = window.innerWidth < 768;
+            document.body.style.overflow = (isOpen && isMobile) ? 'hidden' : '';
+            if (isOpen) updateSidebarScrollbar();
         }
+
+        // Scrollbar custom sidebar
+        function updateSidebarScrollbar() {
+            const nav = document.getElementById('sidebarNav');
+            const track = document.getElementById('sidebarScrollTrack');
+            const thumb = document.getElementById('sidebarScrollThumb');
+            if (!nav || !track || !thumb) return;
+            const scrollable = nav.scrollHeight - nav.clientHeight;
+            if (scrollable <= 0) { track.style.display = 'none'; return; }
+            track.style.display = 'block';
+            const trackH = track.clientHeight;
+            const thumbH = Math.max(30, trackH * nav.clientHeight / nav.scrollHeight);
+            thumb.style.height = thumbH + 'px';
+            const maxTop = trackH - thumbH;
+            thumb.style.top = (maxTop * nav.scrollTop / scrollable) + 'px';
+        }
+        (function initSidebarScrollbar() {
+            const nav = document.getElementById('sidebarNav');
+            const track = document.getElementById('sidebarScrollTrack');
+            const thumb = document.getElementById('sidebarScrollThumb');
+            if (!nav || !track || !thumb) return;
+            nav.addEventListener('scroll', updateSidebarScrollbar, { passive: true });
+            window.addEventListener('resize', updateSidebarScrollbar);
+            // Drag thumb untuk scroll
+            let dragging = false, startY = 0, startScroll = 0;
+            thumb.addEventListener('pointerdown', function(e) {
+                dragging = true; startY = e.clientY; startScroll = nav.scrollTop;
+                thumb.setPointerCapture(e.pointerId);
+                e.preventDefault();
+            });
+            thumb.addEventListener('pointermove', function(e) {
+                if (!dragging) return;
+                const scrollable = nav.scrollHeight - nav.clientHeight;
+                const trackH = track.clientHeight;
+                const thumbH = thumb.clientHeight;
+                const maxTop = trackH - thumbH;
+                if (maxTop <= 0 || scrollable <= 0) return;
+                nav.scrollTop = startScroll + (e.clientY - startY) * scrollable / maxTop;
+            });
+            ['pointerup', 'pointercancel'].forEach(function(ev) {
+                thumb.addEventListener(ev, function() { dragging = false; });
+            });
+            // Tap track untuk lompat
+            track.addEventListener('pointerdown', function(e) {
+                if (e.target === thumb) return;
+                const rect = track.getBoundingClientRect();
+                const ratio = (e.clientY - rect.top) / rect.height;
+                nav.scrollTop = ratio * (nav.scrollHeight - nav.clientHeight);
+            });
+            setTimeout(updateSidebarScrollbar, 300);
+        })();
 
         let targetFormToSubmit = null;
         function showConfirmModal(formElement, title, message) {

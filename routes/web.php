@@ -90,8 +90,8 @@ Route::middleware(['auth'])->prefix('kunjungan')->name('kunjungan.')->group(func
 
     Route::get('/{id}', [KunjunganController::class, 'show'])->name('show');
 
-    // Role Pimpinan
-    Route::middleware(['role:Pimpinan'])->group(function () {
+    // Role Pimpinan & Kepala Pimpinan
+    Route::middleware(['role:Kepala Pimpinan,Pimpinan'])->group(function () {
         Route::post('/store', [KunjunganController::class, 'store'])->name('store');
         Route::put('/{id}', [KunjunganController::class, 'update'])->name('update');
         Route::delete('/{id}', [KunjunganController::class, 'destroy'])->name('destroy');

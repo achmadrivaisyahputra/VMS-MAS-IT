@@ -19,7 +19,7 @@
             <h3 class="text-lg font-bold text-[#002266]">Daftar Kunjungan Engineer</h3>
             <p class="text-xs text-slate-500 font-medium mt-0.5">Monitoring seluruh siklus kunjungan dari penugasan hingga verifikasi</p>
         </div>
-        @if(Auth::user()->id_role == 2)
+        @if(in_array(Auth::user()->id_role, [1, 2]))
             <button onclick="document.getElementById('modalTambahKunjungan').classList.remove('hidden')" 
                     class="px-4 py-2.5 bg-[#002266] hover:bg-[#001233] text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-900/20 transition flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
@@ -122,7 +122,7 @@
                                     Detail
                                 </a>
                                 
-                                @if(Auth::user()->id_role == 2 && $k->status != 'Selesai')
+                                @if(in_array(Auth::user()->id_role, [1, 2]) && $k->status != 'Selesai')
                                     <button onclick="document.getElementById('modalEditKunjungan-{{ $k->id_kunjungan }}').classList.remove('hidden')" class="w-full px-3 py-1.5 bg-amber-50 border border-amber-100 hover:bg-amber-500 text-amber-600 hover:text-white rounded-lg text-[10px] font-bold transition">
                                         Edit / Reschedule
                                     </button>
@@ -139,7 +139,7 @@
                         </tr>
 
                         <!-- Modal Edit Kunjungan -->
-                        @if(Auth::user()->id_role == 2 && $k->status != 'Selesai')
+                        @if(in_array(Auth::user()->id_role, [1, 2]) && $k->status != 'Selesai')
                         <div id="modalEditKunjungan-{{ $k->id_kunjungan }}" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 text-left">
                             <div class="bg-white border border-slate-200 rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
                                 <div class="flex justify-between items-center mb-4">
@@ -247,7 +247,7 @@
 </div>
 
 <!-- Modal Tambah Kunjungan -->
-@if(Auth::user()->id_role == 2)
+@if(in_array(Auth::user()->id_role, [1, 2]))
 <div id="modalTambahKunjungan" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white border border-slate-200 rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-4">
