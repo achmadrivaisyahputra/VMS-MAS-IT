@@ -28,7 +28,7 @@
     </div>
 
     <!-- Sidebar Menu (Responsive) -->
-    <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-[#001233] via-[#002266] to-[#0055ff] border-r border-blue-800/50 flex flex-col justify-between shrink-0 transform -translate-x-full md:translate-x-0 md:static transition-transform duration-200 ease-in-out min-h-screen shadow-[4px_0_24px_rgba(0,34,102,0.15)]">
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-[#001233] via-[#002266] to-[#0055ff] border-r border-blue-800/50 flex flex-col shrink-0 transform -translate-x-full md:translate-x-0 md:static transition-transform duration-200 ease-in-out min-h-screen shadow-[4px_0_24px_rgba(0,34,102,0.15)]">
         <div>
             <!-- Brand Logo -->
             <div class="p-5 border-b border-blue-800/40 flex items-center justify-between">
@@ -111,9 +111,8 @@
                     <span>Laporan & PDF</span>
                 </a>
             </nav>
-        </div>
-
-        <div class="p-4 border-t border-blue-400/20">
+            <!-- Profil pengguna: langsung di bawah menu -->
+            <div class="mt-3 p-4 border-t border-blue-400/20">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3 overflow-hidden">
                     <div class="w-8 h-8 rounded-full bg-transparent border border-blue-200 text-white flex items-center justify-center text-xs font-bold shadow-sm shrink-0">
@@ -138,6 +137,7 @@
                     </form>
                 </div>
             </div>
+        </div>
         </div>
     </aside> 
 
