@@ -66,8 +66,8 @@ class LaporanController extends Controller
             'laporan.buktiPenyelesaian'
         ])->where('nomor', $id_kunjungan)->firstOrFail();
 
-        // Ambil aktivitas terakhir untuk waktu check-in/check-out dan catatan
-        $aktivitas = $kunjungan->aktivitas->last();
+        // Ambil aktivitas LEAD engineer untuk waktu check-in/check-out dan catatan (PDF hanya pakai lead)
+        $aktivitas = $kunjungan->aktivitas->firstWhere('id_engineer', $kunjungan->id_engineer) ?? $kunjungan->aktivitas->last();
         $bukti = $kunjungan->laporan->buktiPenyelesaian ?? null;
 
         $pdf = Pdf::loadView('laporan.pdf_template', compact('kunjungan', 'aktivitas', 'bukti'))
@@ -124,8 +124,8 @@ class LaporanController extends Controller
         // Opsional: Cek apakah customer punya email di database (asumsi kolomnya 'email')
         $emailTujuan = $kunjungan->customer->email ?? 'dummyclient@mailinator.com'; // Ganti fallback-nya kalau kolom email nggak ada
 
-        // Ambil data untuk PDF
-        $aktivitas = $kunjungan->aktivitas->last();
+        // Ambil aktivitas LEAD engineer untuk PDF (hanya koordinat lead)
+        $aktivitas = $kunjungan->aktivitas->firstWhere('id_engineer', $kunjungan->id_engineer) ?? $kunjungan->aktivitas->last();
         $bukti = $kunjungan->laporan->buktiPenyelesaian ?? null;
 
         // Render PDF ke dalam memory (tanpa di-download ke browser)

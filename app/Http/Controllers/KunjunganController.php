@@ -324,7 +324,7 @@ class KunjunganController extends Controller
             'site',
             'engineer.user', 
             'tools', 
-            'aktivitas', 
+            'aktivitas.engineer.user', 
             'dokumentasi', 
             'laporan.buktiPenyelesaian',
             'laporan.pembuat.user',
@@ -516,6 +516,7 @@ class KunjunganController extends Controller
         $aktivitas->update([
             'waktu_selesai' => now(),
             'catatan' => $request->catatan,
+            'lokasi_checkout' => $request->lokasi_gps,
         ]);
 
         // Update koordinat check-out kunjungan (terakhir yang check-out)

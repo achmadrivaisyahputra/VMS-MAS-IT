@@ -497,64 +497,82 @@
 
         <div class="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-5 text-xs">
             <h4 class="text-xs font-bold text-[#002266] uppercase tracking-wider border-b border-slate-100 pb-2">Log Waktu & Lokasi GPS</h4>
-            @php
-                $act = $kunjungan->aktivitas->last();
-                $ciLat = $kunjungan->check_in_latitude;
-                $ciLng = $kunjungan->check_in_longitude;
-                if ((!$ciLat || !$ciLng) && $act && $act->lokasi) {
-                    $ciParts = explode(',', $act->lokasi);
-                    $ciLat = trim($ciParts[0] ?? '');
-                    $ciLng = trim($ciParts[1] ?? '');
-                }
-                $coLat = $kunjungan->check_out_latitude;
-                $coLng = $kunjungan->check_out_longitude;
-            @endphp
-
-            <!-- Lokasi Check-in -->
-            <div class="space-y-2">
-                <div class="flex items-center justify-between gap-2">
-                    <p class="font-bold text-slate-800">📍 Lokasi Check-in</p>
-                    @if($ciLat && $ciLng)
-                    <a href="https://www.google.com/maps/search/?api=1&query={{ $ciLat }},{{ $ciLng }}" target="_blank" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5">
-                        🗺️ Buka Google Maps
-                    </a>
-                    @endif
-                </div>
-                @if($ciLat && $ciLng)
-                    <p class="font-mono font-bold text-[#003399]">{{ $ciLat }}, {{ $ciLng }}</p>
-                    <div class="w-full h-48 rounded-xl overflow-hidden border border-slate-200 shadow-inner">
-                        <iframe class="w-full h-full border-0" loading="lazy" allowfullscreen
-                            src="https://maps.google.com/maps?q={{ $ciLat }},{{ $ciLng }}&z=16&output=embed"></iframe>
+            @forelse($kunjungan->aktivitas->sortBy('waktu_mulai') as $act)
+                @php
+                    $namaEng = $act->engineer->user->nama ?? '-';
+                    $isLead = $act->id_engineer == $kunjungan->id_engineer;
+                    $ciLat = $coLat = $ciLng = $coLng = null;
+                    if ($act->lokasi) {
+                        $ciParts = explode(',', $act->lokasi);
+                        $ciLat = trim($ciParts[0] ?? '');
+                        $ciLng = trim($ciParts[1] ?? '');
+                    }
+                    if ($act->lokasi_checkout) {
+                        $coParts = explode(',', $act->lokasi_checkout);
+                        $coLat = trim($coParts[0] ?? '');
+                        $coLng = trim($coParts[1] ?? '');
+                    }
+                    // Fallback ke koordinat global kunjungan untuk lead
+                    if ($isLead) {
+                        if (!$ciLat && $kunjungan->check_in_latitude) { $ciLat = $kunjungan->check_in_latitude; $ciLng = $kunjungan->check_in_longitude; }
+                        if (!$coLat && $kunjungan->check_out_latitude) { $coLat = $kunjungan->check_out_latitude; $coLng = $kunjungan->check_out_longitude; }
+                    }
+                @endphp
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <p class="font-bold text-sm text-slate-800">👷 {{ $namaEng }}</p>
+                        <span class="px-2.5 py-1 rounded-full text-[10px] font-bold {{ $isLead ? 'bg-[#002266] text-white' : 'bg-slate-200 text-slate-600' }}">{{ $isLead ? 'LEAD ENGINEER' : 'TIM SUPPORT' }}</span>
                     </div>
-                @else
-                    <p class="italic text-slate-400 font-medium">Belum check-in</p>
-                @endif
-                <p class="font-medium text-slate-600"><strong class="text-slate-800">Waktu Check-in:</strong> {{ $act->waktu_mulai ?? '-' }}</p>
-            </div>
 
-            <!-- Lokasi Check-out -->
-            <div class="space-y-2 border-t border-slate-100 pt-4">
-                <div class="flex items-center justify-between gap-2">
-                    <p class="font-bold text-slate-800">📍 Lokasi Check-out</p>
-                    @if($coLat && $coLng)
-                    <a href="https://www.google.com/maps/search/?api=1&query={{ $coLat }},{{ $coLng }}" target="_blank" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5">
-                        🗺️ Buka Google Maps
-                    </a>
-                    @endif
-                </div>
-                @if($coLat && $coLng)
-                    <p class="font-mono font-bold text-[#003399]">{{ $coLat }}, {{ $coLng }}</p>
-                    <div class="w-full h-48 rounded-xl overflow-hidden border border-slate-200 shadow-inner">
-                        <iframe class="w-full h-full border-0" loading="lazy" allowfullscreen
-                            src="https://maps.google.com/maps?q={{ $coLat }},{{ $coLng }}&z=16&output=embed"></iframe>
+                    <!-- Lokasi Check-in -->
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="font-bold text-slate-800">📍 Lokasi Check-in</p>
+                            @if($ciLat && $ciLng)
+                            <a href="https://www.google.com/maps/search/?api=1&query={{ $ciLat }},{{ $ciLng }}" target="_blank" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5 border border-slate-200">
+                                🗺️ Buka Google Maps
+                            </a>
+                            @endif
+                        </div>
+                        @if($ciLat && $ciLng)
+                            <p class="font-mono font-bold text-[#003399]">{{ $ciLat }}, {{ $ciLng }}</p>
+                            <div class="w-full h-48 rounded-xl overflow-hidden border border-slate-200 shadow-inner">
+                                <iframe class="w-full h-full border-0" loading="lazy" allowfullscreen
+                                    src="https://maps.google.com/maps?q={{ $ciLat }},{{ $ciLng }}&z=16&output=embed"></iframe>
+                            </div>
+                        @else
+                            <p class="italic text-slate-400 font-medium">Belum check-in</p>
+                        @endif
+                        <p class="font-medium text-slate-600"><strong class="text-slate-800">Waktu Check-in:</strong> {{ $act->waktu_mulai ?? '-' }}</p>
                     </div>
-                @else
-                    <p class="italic text-slate-400 font-medium">Belum check-out</p>
-                @endif
-                <p class="font-medium text-slate-600"><strong class="text-slate-800">Waktu Check-out:</strong> {{ $act->waktu_selesai ?? '-' }}</p>
-            </div>
 
-            <p class="font-medium text-slate-600 border-t border-slate-100 pt-3"><strong class="text-slate-800">Catatan Engineer:</strong> {{ $act->catatan ?? '-' }}</p>
+                    <!-- Lokasi Check-out -->
+                    <div class="space-y-2 border-t border-slate-200 pt-4">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="font-bold text-slate-800">📍 Lokasi Check-out</p>
+                            @if($coLat && $coLng)
+                            <a href="https://www.google.com/maps/search/?api=1&query={{ $coLat }},{{ $coLng }}" target="_blank" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5 border border-slate-200">
+                                🗺️ Buka Google Maps
+                            </a>
+                            @endif
+                        </div>
+                        @if($coLat && $coLng)
+                            <p class="font-mono font-bold text-[#003399]">{{ $coLat }}, {{ $coLng }}</p>
+                            <div class="w-full h-48 rounded-xl overflow-hidden border border-slate-200 shadow-inner">
+                                <iframe class="w-full h-full border-0" loading="lazy" allowfullscreen
+                                    src="https://maps.google.com/maps?q={{ $coLat }},{{ $coLng }}&z=16&output=embed"></iframe>
+                            </div>
+                        @else
+                            <p class="italic text-slate-400 font-medium">Belum check-out</p>
+                        @endif
+                        <p class="font-medium text-slate-600"><strong class="text-slate-800">Waktu Check-out:</strong> {{ $act->waktu_selesai ?? '-' }}</p>
+                    </div>
+
+                    <p class="font-medium text-slate-600 border-t border-slate-200 pt-3"><strong class="text-slate-800">Catatan Engineer:</strong> {{ $act->catatan ?? '-' }}</p>
+                </div>
+            @empty
+                <p class="italic text-slate-400 font-medium">Belum ada aktivitas check-in.</p>
+            @endforelse
         </div>
     </div>
 
@@ -716,7 +734,7 @@
     // Draft TTD dari server (tersimpan otomatis), direstore agar tidak hilang saat refresh
     const draftTtdCustomer = @json($kunjungan->draft_ttd_customer);
     const draftTtdEngineer = @json($kunjungan->draft_ttd_engineer);
-    const kunjunganId = {{ $kunjungan->id_kunjungan }};
+    const kunjunganId = @json($kunjungan->nomor);
     const draftTimers = {};
 
     function initPad(canvasId, draftDataUrl) {

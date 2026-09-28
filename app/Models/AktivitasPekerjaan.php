@@ -14,4 +14,9 @@ class AktivitasPekerjaan extends Model
     {
         return $this->belongsTo(Kunjungan::class, 'id_kunjungan', 'id_kunjungan');
     }
+
+    public function engineer()
+    {
+        return $this->belongsTo(Engineer::class, 'id_engineer', 'id_engineer');
+    }
 }

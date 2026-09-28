@@ -166,9 +166,11 @@
         $gpsIn = ($kunjungan->check_in_latitude && $kunjungan->check_in_longitude)
             ? $kunjungan->check_in_latitude.', '.$kunjungan->check_in_longitude
             : ($aktivitas->lokasi ?? '-');
-        $gpsOut = ($kunjungan->check_out_latitude && $kunjungan->check_out_longitude)
-            ? $kunjungan->check_out_latitude.', '.$kunjungan->check_out_longitude
-            : '-';
+        $gpsOut = ($aktivitas->lokasi_checkout ?? null)
+            ? $aktivitas->lokasi_checkout
+            : (($kunjungan->check_out_latitude && $kunjungan->check_out_longitude)
+                ? $kunjungan->check_out_latitude.', '.$kunjungan->check_out_longitude
+                : '-');
     @endphp
     <table class="data-table">
         <thead>
