@@ -52,6 +52,11 @@ Route::middleware(['auth', 'role:Kepala Pimpinan,Pimpinan'])->prefix('master')->
     
     // Engineer
     Route::resource('engineer', EngineerController::class)->except(['create', 'show', 'edit']);
+
+    // Data Pimpinan (hanya Kepala Pimpinan)
+    Route::middleware(['role:Kepala Pimpinan'])->group(function () {
+        Route::resource('pimpinan', \App\Http\Controllers\PimpinanController::class)->except(['create', 'show', 'edit']);
+    });
     
     // Tool (URL memakai kode tool, misal: /master/tool/tls26001)
     Route::resource('tool', ToolController::class)->except(['create', 'show', 'edit']);

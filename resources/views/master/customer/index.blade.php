@@ -80,7 +80,11 @@
                     @forelse($customers as $c)
                         <tr class="hover:bg-slate-50 transition-colors">
                             <td class="p-4">
+                                @if($c->kode)
                                 <a href="{{ route('master.customer.show', $c->kode) }}" class="font-bold text-[#003399] hover:underline" title="Lihat detail customer">{{ $c->nama_perusahaan }}</a>
+                                @else
+                                <span class="font-bold text-slate-800">{{ $c->nama_perusahaan }}</span>
+                                @endif
                                 @if($c->kode)<div class="text-[10px] font-mono font-bold text-slate-400 mt-0.5"><a href="{{ route('master.customer.show', $c->kode) }}" class="hover:text-[#003399] hover:underline">{{ $c->kode }}</a></div>@endif
                             </td>
                             <td class="p-4 font-bold text-slate-800">{{ $c->pic }}</td>

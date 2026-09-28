@@ -50,11 +50,29 @@ class DummyDataSeeder extends Seeder
         ];
 
         $customerIds = [];
+        $fmtCustomer = DB::table('format_nomor')->where('jenis', 'Kode Customer')->first();
         foreach ($customers as $c) {
             $exists = DB::table('customers')->where('nama_perusahaan', $c['nama_perusahaan'])->first();
             if ($exists) {
                 $customerIds[$c['nama_perusahaan']] = $exists->id_customer;
+                // Backfill kode kalau belum ada
+                if (empty($exists->kode) && $fmtCustomer) {
+                    $newCounter = $fmtCustomer->nomor_terakhir + 1;
+                    $tahunPart = $fmtCustomer->tahun ? substr($fmtCustomer->tahun, -2) : '';
+                    $newKode = $fmtCustomer->prefix . $tahunPart . str_pad($newCounter, $fmtCustomer->digit, '0', STR_PAD_LEFT);
+                    DB::table('customers')->where('id_customer', $exists->id_customer)->update(['kode' => $newKode]);
+                    DB::table('format_nomor')->where('jenis', 'Kode Customer')->update(['nomor_terakhir' => $newCounter]);
+                    $fmtCustomer->nomor_terakhir = $newCounter;
+                }
                 continue;
+            }
+            // Generate kode customer otomatis
+            if ($fmtCustomer) {
+                $newCounter = $fmtCustomer->nomor_terakhir + 1;
+                $tahunPart = $fmtCustomer->tahun ? substr($fmtCustomer->tahun, -2) : '';
+                $c['kode'] = $fmtCustomer->prefix . $tahunPart . str_pad($newCounter, $fmtCustomer->digit, '0', STR_PAD_LEFT);
+                DB::table('format_nomor')->where('jenis', 'Kode Customer')->update(['nomor_terakhir' => $newCounter]);
+                $fmtCustomer->nomor_terakhir = $newCounter;
             }
             $c['created_at'] = now();
             $c['updated_at'] = now();
