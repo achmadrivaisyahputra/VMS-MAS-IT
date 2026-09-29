@@ -39,6 +39,8 @@ class FormatNomor extends Model
      * Aman dari duplikat walau banyak user bikin barengan (row lock).
      * Kalau format belum ada (seeder belum jalan), otomatis dibuatkan default
      * supaya input data baru tidak error 404.
+     * Kalau kode hasil generate ternyata sudah dipakai data lama (counter tidak
+     * sinkron), counter otomatis dimajukan sampai dapat kode yang unik.
      */
     public static function generate(string $kode): string
     {
@@ -49,9 +51,41 @@ class FormatNomor extends Model
                 $format->save();
                 $format = self::where('kode', $kode)->lockForUpdate()->first();
             }
-            $format->increment('nomor_terakhir');
-            return $format->format($format->nomor_terakhir);
+            // Maju terus sampai dapat kode yang belum dipakai
+            $tries = 0;
+            do {
+                $format->increment('nomor_terakhir');
+                $candidate = $format->format($format->nomor_terakhir);
+                $tries++;
+            } while ($tries < 1000 && self::kodeSudahDipakai($kode, $candidate));
+            return $candidate;
         });
+    }
+
+    /**
+     * Pemetaan kode format -> model & kolom kode, untuk cek duplikat.
+     */
+    protected static function targetUntuk(string $kode): ?array
+    {
+        return [
+            'tool'      => [\App\Models\Tool::class, 'kode'],
+            'customer'  => [\App\Models\Customer::class, 'kode'],
+            'kunjungan' => [\App\Models\Kunjungan::class, 'nomor'],
+            'engineer'  => [\App\Models\Engineer::class, 'kode'],
+        ][$kode] ?? null;
+    }
+
+    /**
+     * Cek apakah kode sudah dipakai di tabel target.
+     */
+    protected static function kodeSudahDipakai(string $kode, string $candidate): bool
+    {
+        $target = self::targetUntuk($kode);
+        if (!$target) {
+            return false;
+        }
+        [$model, $column] = $target;
+        return $model::where($column, $candidate)->exists();
     }
 
     /**
