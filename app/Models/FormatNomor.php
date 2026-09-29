@@ -37,14 +37,45 @@ class FormatNomor extends Model
     /**
      * Generate nomor baru yang unik & berurutan.
      * Aman dari duplikat walau banyak user bikin barengan (row lock).
+     * Kalau format belum ada (seeder belum jalan), otomatis dibuatkan default
+     * supaya input data baru tidak error 404.
      */
     public static function generate(string $kode): string
     {
         return DB::transaction(function () use ($kode) {
-            $format = self::where('kode', $kode)->lockForUpdate()->firstOrFail();
+            $format = self::where('kode', $kode)->lockForUpdate()->first();
+            if (!$format) {
+                $format = self::defaultUntuk($kode);
+                $format->save();
+                $format = self::where('kode', $kode)->lockForUpdate()->first();
+            }
             $format->increment('nomor_terakhir');
             return $format->format($format->nomor_terakhir);
         });
+    }
+
+    /**
+     * Format default untuk tiap kode — dipakai saat generate() dipanggil
+     * padahal baris formatnya belum ada di database.
+     */
+    protected static function defaultUntuk(string $kode): self
+    {
+        $defaults = [
+            'kunjungan' => ['jenis' => 'ID Kunjungan', 'prefix' => 'vmsmit', 'tahun' => 2026, 'digit' => 3],
+            'customer'  => ['jenis' => 'Kode Customer', 'prefix' => 'cst', 'tahun' => 2026, 'digit' => 3],
+            'tool'      => ['jenis' => 'Kode Tool', 'prefix' => 'tls', 'tahun' => 2026, 'digit' => 3],
+            'engineer'  => ['jenis' => 'Kode Engineer', 'prefix' => 'eng', 'tahun' => 2026, 'digit' => 3],
+        ];
+        $d = $defaults[$kode] ?? ['jenis' => 'Kode ' . ucfirst($kode), 'prefix' => substr($kode, 0, 3), 'tahun' => 2026, 'digit' => 3];
+        $m = new self();
+        $m->kode = $kode;
+        $m->jenis = $d['jenis'];
+        $m->deskripsi = 'Dibuat otomatis saat pertama kali dipakai.';
+        $m->prefix = $d['prefix'];
+        $m->tahun = $d['tahun'];
+        $m->digit = $d['digit'];
+        $m->nomor_terakhir = 0;
+        return $m;
     }
 
     /**
