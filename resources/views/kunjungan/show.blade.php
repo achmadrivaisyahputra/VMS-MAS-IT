@@ -919,6 +919,13 @@
                         img.alt = 'Preview PDF';
                         wrap.appendChild(img);
                     });
+                } else if (data.pdf_url) {
+                    const frame = document.createElement('iframe');
+                    frame.src = data.pdf_url;
+                    frame.className = 'w-full rounded-lg shadow-md border border-slate-300 bg-white';
+                    frame.style.height = '60vh';
+                    frame.title = 'Preview PDF';
+                    wrap.appendChild(frame);
                 } else {
                     wrap.innerHTML = '<p class="text-center text-sm text-rose-600 font-bold py-6">Gagal memuat preview.</p>';
                 }

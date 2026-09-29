@@ -77,6 +77,18 @@ class LaporanController extends Controller
         $pdfPath = $tmpBase . '.pdf';
         file_put_contents($pdfPath, $pdf->output());
 
+        // Jika pdftoppm tidak tersedia (umum di shared hosting), fallback:
+        // kembalikan URL PDF langsung agar tetap bisa di-preview di browser.
+        $pdftoppm = trim((string) @shell_exec('command -v pdftoppm 2>/dev/null'));
+        if ($pdftoppm === '') {
+            @unlink($pdfPath);
+            @unlink($tmpBase);
+            return response()->json([
+                'images' => [],
+                'pdf_url' => route('laporan.pdf', $kunjungan->nomor) . '?t=' . time(),
+            ])->header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+        }
+
         $images = [];
         $pngPrefix = $tmpBase . '_page';
         exec('pdftoppm -png -r 80 ' . escapeshellarg($pdfPath) . ' ' . escapeshellarg($pngPrefix) . ' 2>/dev/null');

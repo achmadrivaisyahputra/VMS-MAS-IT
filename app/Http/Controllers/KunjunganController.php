@@ -471,7 +471,9 @@ class KunjunganController extends Controller
 
         $file = $request->file('foto');
         $filename = time() . '_' . $file->getClientOriginalName();
-        $file->move(public_path('uploads/dokumentasi'), $filename);
+        $dokDir = public_path('uploads/dokumentasi');
+        if (!is_dir($dokDir)) mkdir($dokDir, 0755, true);
+        $file->move($dokDir, $filename);
 
         Dokumentasi::create([
             'id_kunjungan' => $kunjungan->id_kunjungan,
@@ -497,7 +499,9 @@ class KunjunganController extends Controller
         if ($request->hasFile('bukti_nota')) {
             $file = $request->file('bukti_nota');
             $filename = time() . '_nota_' . $file->getClientOriginalName();
-            $file->move(public_path('uploads/pengeluaran'), $filename);
+            $notaDir = public_path('uploads/pengeluaran');
+            if (!is_dir($notaDir)) mkdir($notaDir, 0755, true);
+            $file->move($notaDir, $filename);
             $path = 'uploads/pengeluaran/' . $filename;
         }
 
